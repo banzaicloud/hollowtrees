@@ -2,9 +2,7 @@ package recommender
 
 import (
 	"github.com/banzaicloud/hollowtrees/conf"
-	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"net/http"
 )
 
 type AZRecommendation struct {
@@ -23,23 +21,15 @@ type InstanceTypeInfo struct {
 
 var log *logrus.Logger
 
-func RecommendSpotInstanceTypes(c *gin.Context) {
+func RecommendSpotInstanceTypes(region string, az string, baseInstanceType string) []AZRecommendation {
 	log = conf.Logger()
-
-	region := c.Param("region")
-	log.Info(region)
-
-	baseInstanceType := c.DefaultQuery("baseInstanceType", "m4.xlarge")
-	log.Info(baseInstanceType)
-
-	az := c.DefaultQuery("az", "")
-	log.Info(az)
+	log.Info(region, az, baseInstanceType)
 
 	// validate region and base instance type
 	// get instance types based on base instance type from pricing api (based on cpus, mem, etc..)
 	// compute cost/ondemand/stabilityscore/avgprice/currentprice in seleced AZ
 
-	var response = []AZRecommendation{
+	var azRecommendations = []AZRecommendation{
 		AZRecommendation{
 			AzName: "eu-west-1a",
 			InstaceTypes: []InstanceTypeInfo{
@@ -84,5 +74,5 @@ func RecommendSpotInstanceTypes(c *gin.Context) {
 		},
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": response})
+	return azRecommendations
 }
