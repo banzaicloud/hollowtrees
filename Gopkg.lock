@@ -9,6 +9,24 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/gin-contrib/sse"
+  packages = ["."]
+  revision = "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
+
+[[projects]]
+  name = "github.com/gin-gonic/gin"
+  packages = [".","binding","render"]
+  revision = "d459835d2b077e44f7c9b453505ee29881d5d12d"
+  version = "v1.2"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  revision = "1643683e1b54a9e88ad26d98f81400c8c9d9f4f9"
+
+[[projects]]
+  branch = "master"
   name = "github.com/hashicorp/hcl"
   packages = [".","hcl/ast","hcl/parser","hcl/scanner","hcl/strconv","hcl/token","json/parser","json/scanner","json/token"]
   revision = "23c074d0eceb2b8a5bfdbb271ab780cde70f05a8"
@@ -18,6 +36,12 @@
   packages = ["."]
   revision = "be5ece7dd465ab0765a9682137865547526d1dfb"
   version = "v1.7.3"
+
+[[projects]]
+  name = "github.com/mattn/go-isatty"
+  packages = ["."]
+  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
+  version = "v0.0.3"
 
 [[projects]]
   branch = "master"
@@ -69,6 +93,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/ugorji/go"
+  packages = ["codec"]
+  revision = "dd3aa7221b0c7a61c3ea1a0a252d06efa5161e3f"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   revision = "6a293f2d4b14b8e6d3f0539e383f6d0d30fce3fd"
@@ -86,6 +116,12 @@
   revision = "88f656faf3f37f690df1a32515b479415e1a6769"
 
 [[projects]]
+  name = "gopkg.in/go-playground/validator.v8"
+  packages = ["."]
+  revision = "5f1438d3fca68893a817e4a66806cea46a9e4ebf"
+  version = "v8.18.2"
+
+[[projects]]
   branch = "v2"
   name = "gopkg.in/yaml.v2"
   packages = ["."]
@@ -94,6 +130,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9d108e3c210428f77a7d500eeb6a7ac9343ae88a90bdcd2a37f87f02f6a647aa"
+  inputs-digest = "c6ad45d345068f6cbba360e919926e4f1b6a40c3332d07c34065ce87cef24c9e"
   solver-name = "gps-cdcl"
   solver-version = 1
