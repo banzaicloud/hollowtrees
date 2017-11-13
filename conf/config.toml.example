@@ -1,0 +1,6 @@
+#environment
+[dev]
+
+#logger settings
+logformat = "text"
+loglevel = "debug"

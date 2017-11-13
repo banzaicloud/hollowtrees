@@ -6,4 +6,5 @@ bin/*
 hollowtrees.iml
 .hollowtrees
 hollowtrees
+conf/config.toml
 *.swp
