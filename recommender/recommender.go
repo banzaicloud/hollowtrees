@@ -21,7 +21,7 @@ type InstanceTypeInfo struct {
 
 var log *logrus.Logger
 
-func RecommendSpotInstanceTypes(region string, az string, baseInstanceType string) []AZRecommendation {
+func RecommendSpotInstanceTypes(region string, az string, baseInstanceType string) ([]AZRecommendation, error) {
 	log = conf.Logger()
 	log.Info(region, az, baseInstanceType)
 
@@ -74,5 +74,5 @@ func RecommendSpotInstanceTypes(region string, az string, baseInstanceType strin
 		},
 	}
 
-	return azRecommendations
+	return azRecommendations, nil
 }
