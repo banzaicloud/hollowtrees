@@ -6,12 +6,9 @@ import (
 	"net/http"
 	"fmt"
 	"github.com/banzaicloud/hollowtrees/engine"
-	"github.com/sirupsen/logrus"
-	"github.com/banzaicloud/hollowtrees/conf"
 	"gopkg.in/go-playground/validator.v8"
+	"github.com/banzaicloud/hollowtrees/engine/aws"
 )
-
-var log *logrus.Logger = conf.Logger()
 
 func ConfigureRoutes(router *gin.Engine) {
 	v1 := router.Group("/api/v1/")
@@ -34,16 +31,21 @@ func recommendSpotInstanceTypes(c *gin.Context) {
 }
 
 func createHollowGroup(c *gin.Context) {
-	var hgRequest engine.HollowGroupRequest
-	if err := c.BindJSON(&hgRequest); err != nil {
+	hgRequest := new(engine.HollowGroupRequest)
+	if err := c.BindJSON(hgRequest); err != nil {
 		if ve, ok := err.(validator.ValidationErrors); !ok {
 			// TODO: not a validation error
+			fmt.Println(err)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "message": "Missing required field", "error": ve.Error()})
 		}
 		return
 	}
-	if response, err := engine.CreateHollowGroup(hgRequest); err != nil {
+	awsEngine, err := aws.New("eu-west-1")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": fmt.Sprintf("%s", err)})
+	}
+	if response, err := awsEngine.CreateHollowGroup(hgRequest); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": fmt.Sprintf("%s", err)})
 	} else {
 		c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": response})
