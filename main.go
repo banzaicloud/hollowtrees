@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/banzaicloud/hollowtrees/api"
+	"github.com/banzaicloud/hollowtrees/monitor"
 )
 
 var log *logrus.Logger
@@ -17,7 +18,11 @@ func main() {
 	log = conf.Logger()
 	log.Info("Logger configured.")
 
+	// start asg-monitor here
+	monitor.Start()
+
 	router := gin.Default()
 	api.ConfigureRoutes(router)
 	router.Run(":9090")
+
 }

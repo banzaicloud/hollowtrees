@@ -39,5 +39,7 @@ func (engine *AwsCloudEngine) CreateHollowGroup(group *engine.HollowGroupRequest
 	}
 	log.Info(result)
 
+	// attach to asg-monitor (asg-scanner) (simply tag the ASG? or save the launch config to a db?)
+
 	return group.AutoScalingGroupName, nil
 }
