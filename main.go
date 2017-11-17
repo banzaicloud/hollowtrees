@@ -18,7 +18,6 @@ func main() {
 	log = conf.Logger()
 	log.Info("Logger configured.")
 
-	// start asg-monitor here
 	monitor.Start()
 
 	router := gin.Default()

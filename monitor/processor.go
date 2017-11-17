@@ -2,25 +2,24 @@ package monitor
 
 import (
 	"github.com/sirupsen/logrus"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/banzaicloud/hollowtrees/conf"
 	"time"
 )
 
 type PoolProcessor struct {
 	ID          int
-	Work        chan PoolRequest
-	WorkerQueue chan chan PoolRequest
-	FinishQueue chan PoolRequest
+	Work        chan VmPoolRequest
+	WorkerQueue chan chan VmPoolRequest
+	Results     chan VmPoolRequest
 	QuitChan    chan bool
 }
 
-func NewPoolProcessor(id int, workerQueue chan chan PoolRequest, finishQueue chan PoolRequest) PoolProcessor {
+func NewPoolProcessor(id int, workerQueue chan chan VmPoolRequest, results chan VmPoolRequest) PoolProcessor {
 	return PoolProcessor{
 		ID:          id,
-		Work:        make(chan PoolRequest),
+		Work:        make(chan VmPoolRequest),
 		WorkerQueue: workerQueue,
-		FinishQueue: finishQueue,
+		Results:     results,
 		QuitChan:    make(chan bool)}
 }
 
@@ -37,15 +36,15 @@ func (w *PoolProcessor) Start() {
 				// Receive a work request.
 				log.WithFields(logrus.Fields{
 					"worker": w.ID,
-					"asg":    *work.asg.AutoScalingGroupName,
+					"asg":    *work.VmPoolName,
 				}).Info("Received work request")
 
-				w.UpdateASG(work.asg)
+				w.UpdateASG(work.VmPoolName)
 				log.WithFields(logrus.Fields{
 					"worker": w.ID,
-					"asg":    *work.asg.AutoScalingGroupName,
+					"asg":    *work.VmPoolName,
 				}).Info("Updated ASG done")
-				w.FinishQueue <- work
+				w.Results <- work
 
 			case <-w.QuitChan:
 				log.WithFields(logrus.Fields{
@@ -63,10 +62,10 @@ func (w *PoolProcessor) Stop() {
 	}()
 }
 
-func (w *PoolProcessor) UpdateASG(group autoscaling.Group) {
-	for i := 0; i < 25; i++ {
+func (w *PoolProcessor) UpdateASG(vmPoolName *string) {
+	for i := 0; i < 32; i++ {
 		time.Sleep(1 * time.Second)
-		log.Info("sleeping .. ", i)
+		log.Info("sleeping .. ", *vmPoolName, i)
 	}
 	//result, err := asgSvc.UpdateAutoScalingGroup(&autoscaling.UpdateAutoScalingGroupInput{
 	//	AutoScalingGroupName: group.AutoScalingGroupName,

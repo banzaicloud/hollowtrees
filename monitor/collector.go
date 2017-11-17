@@ -10,24 +10,24 @@ import (
 	"sync"
 )
 
-type CurrentRequests struct {
+type InProgressRequests struct {
 	r map[string]bool
 	sync.Mutex
 }
 
 type Collector struct {
-	pollPeriod       time.Duration
-	poolRequestQueue chan PoolRequest
-	finishQueue      chan PoolRequest
-	requests         CurrentRequests
+	PollPeriod time.Duration
+	Requests   chan VmPoolRequest
+	Results    chan VmPoolRequest
+	InProgress InProgressRequests
 }
 
-func NewCollector(p time.Duration, requestQueue chan PoolRequest, responseQueue chan PoolRequest) *Collector {
+func NewCollector(p time.Duration, requests chan VmPoolRequest, results chan VmPoolRequest) *Collector {
 	return &Collector{
-		pollPeriod:       p,
-		poolRequestQueue: requestQueue,
-		finishQueue:      responseQueue,
-		requests: CurrentRequests{
+		PollPeriod: p,
+		Requests:   requests,
+		Results:    results,
+		InProgress: InProgressRequests{
 			r: make(map[string]bool),
 		},
 	}
@@ -35,7 +35,7 @@ func NewCollector(p time.Duration, requestQueue chan PoolRequest, responseQueue 
 
 func (c *Collector) Start() {
 	log = conf.Logger()
-	ticker := time.NewTicker(c.pollPeriod)
+	ticker := time.NewTicker(c.PollPeriod)
 
 	session, err := session.NewSession()
 	if err != nil {
@@ -46,13 +46,15 @@ func (c *Collector) Start() {
 	go func() {
 		for {
 			select {
-			case work := <-c.finishQueue:
-				log.Info("Received finished request:", *work.asg.AutoScalingGroupName)
-				c.requests.Lock()
-				c.requests.r[*work.asg.AutoScalingGroupName] = false
-				c.requests.Unlock()
+			case work := <-c.Results:
+				log.Info("Received finished request:", *work.VmPoolName)
+				c.InProgress.Lock()
+				c.InProgress.r[*work.VmPoolName] = false
+				c.InProgress.Unlock()
 
 			case <-ticker.C:
+				// go func??? - if we kick off a go func here, it is possible that a "lot" of go funcs will wait here blocked
+				// and it will cause a memory leak
 				log.Info("ticker triggered:", time.Now())
 				result, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{})
 				if err != nil {
@@ -69,7 +71,6 @@ func (c *Collector) Start() {
 					}
 					if htManaged {
 						desiredCapacity := *asg.DesiredCapacity
-						//originalMinSize := *asg.MinSize
 						nrOfPending := 0
 						for _, instance := range asg.Instances {
 							if *instance.LifecycleState == "Pending" {
@@ -81,15 +82,15 @@ func (c *Collector) Start() {
 						}).Info("desired/current/pending:", *asg.DesiredCapacity, len(asg.Instances), nrOfPending)
 						if desiredCapacity != 0 && (len(asg.Instances) == 0 || nrOfPending == len(asg.Instances)) {
 							log.Info("Found ASG where it seems that there is work, but check it first...")
-							c.requests.Lock()
-							if !c.requests.r[*asg.AutoScalingGroupName] {
-								c.requests.r[*asg.AutoScalingGroupName] = true
-								c.poolRequestQueue <- PoolRequest{asg: *asg}
+							c.InProgress.Lock()
+							if !c.InProgress.r[*asg.AutoScalingGroupName] {
+								c.InProgress.r[*asg.AutoScalingGroupName] = true
+								c.Requests <- VmPoolRequest{VmPoolName: asg.AutoScalingGroupName}
 								log.Info("Found ASG where we have some work, pushing to the queue...")
 							} else {
 								log.Info("It seems that we are already working on this ASG...")
 							}
-							c.requests.Unlock()
+							c.InProgress.Unlock()
 							log.Info("current time", time.Now(), "vs created time", *asg.CreatedTime)
 						}
 					}
