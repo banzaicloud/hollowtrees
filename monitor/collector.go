@@ -39,9 +39,9 @@ func (c *Collector) Start() {
 		for {
 			select {
 			case result := <-c.Results:
-				log.Info("Received result:", *result.VmPoolName)
+				log.Info("Received result:", *result.VmPoolTask.VmPoolName)
 				c.InProgress.Lock()
-				c.InProgress.r[*result.VmPoolName] = false
+				c.InProgress.r[*result.VmPoolTask.VmPoolName] = false
 				c.InProgress.Unlock()
 
 			case <-ticker.C:
@@ -51,9 +51,9 @@ func (c *Collector) Start() {
 				log.Info("ticker triggered:", time.Now())
 				for _, vmPool := range c.VmPoolManager.CollectVmPools() {
 					c.InProgress.Lock()
-					if !c.InProgress.r[*vmPool] {
-						c.InProgress.r[*vmPool] = true
-						c.Requests <- VmPoolRequest{VmPoolName: vmPool}
+					if !c.InProgress.r[*vmPool.VmPoolName] {
+						c.InProgress.r[*vmPool.VmPoolName] = true
+						c.Requests <- VmPoolRequest{VmPoolTask: vmPool}
 						log.Info("Pushing VM pool to processor queue ", *vmPool)
 					} else {
 						log.Info("A processor is already working on this VM pool ", *vmPool)

@@ -12,6 +12,7 @@ type InstanceTypeInfo struct {
 	CurrentPrice       string
 	AvgPriceFor24Hours float32
 	OnDemandPrice      string
+	SuggestedBidPrice  string
 	CostScore          float32
 	StabilityScore     float32
 }
@@ -20,7 +21,7 @@ var log *logrus.Logger
 
 func RecommendSpotInstanceTypes(region string, az string, baseInstanceType string) (AZRecommendation, error) {
 	log = conf.Logger()
-	log.Info(region, az, baseInstanceType)
+	log.Info("received recommendation request: region/az/baseInstanceType: ", region, "/", az, "/", baseInstanceType)
 
 	// validate region and base instance type
 	// get instance types based on base instance type from pricing api (based on cpus, mem, etc..)
@@ -33,14 +34,16 @@ func RecommendSpotInstanceTypes(region string, az string, baseInstanceType strin
 				CurrentPrice:       "0.2",
 				AvgPriceFor24Hours: 0.1,
 				OnDemandPrice:      "0.22",
+				SuggestedBidPrice:  "0.22",
 				CostScore:          0.3,
 				StabilityScore:     0.5,
 			},
 			InstanceTypeInfo{
-				InstanceTypeName:   "c5.2xlarge",
+				InstanceTypeName:   "c5.4xlarge",
 				CurrentPrice:       "0.065",
 				AvgPriceFor24Hours: 0.07,
 				OnDemandPrice:      "0.25",
+				SuggestedBidPrice:  "0.25",
 				CostScore:          0.95,
 				StabilityScore:     0.99,
 			},
@@ -52,6 +55,7 @@ func RecommendSpotInstanceTypes(region string, az string, baseInstanceType strin
 				CurrentPrice:       "0.1",
 				AvgPriceFor24Hours: 0.08,
 				OnDemandPrice:      "0.22",
+				SuggestedBidPrice:  "0.22",
 				CostScore:          0.6,
 				StabilityScore:     0.8,
 			},
@@ -60,6 +64,7 @@ func RecommendSpotInstanceTypes(region string, az string, baseInstanceType strin
 				CurrentPrice:       "0.06",
 				AvgPriceFor24Hours: 0.065,
 				OnDemandPrice:      "0.25",
+				SuggestedBidPrice:  "0.25",
 				CostScore:          0.99,
 				StabilityScore:     0.99,
 			},

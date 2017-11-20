@@ -4,17 +4,18 @@ import (
 	"time"
 	"github.com/sirupsen/logrus"
 	"github.com/banzaicloud/hollowtrees/monitor/aws"
+	"github.com/banzaicloud/hollowtrees/monitor/types"
 )
 
 var log *logrus.Logger
 
 type VmPoolRequest struct {
-	VmPoolName *string
+	VmPoolTask *types.VmPoolTask
 }
 
 type VmPoolManager interface {
-	CollectVmPools() []*string
-	UpdateVmPool(vmPoolName *string)
+	CollectVmPools() []*types.VmPoolTask
+	UpdateVmPool(vmPoolTask *types.VmPoolTask)
 }
 
 func Start() {

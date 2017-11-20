@@ -33,13 +33,13 @@ func (p *PoolProcessor) Start() {
 			case request := <-p.Request:
 				log.WithFields(logrus.Fields{
 					"processor": p.ID,
-					"vmPool":    *request.VmPoolName,
+					"vmPool":    *request.VmPoolTask.VmPoolName,
 				}).Info("Received request")
 
-				p.VmPoolManager.UpdateVmPool(request.VmPoolName)
+				p.VmPoolManager.UpdateVmPool(request.VmPoolTask)
 				log.WithFields(logrus.Fields{
 					"processor": p.ID,
-					"vmPool":    *request.VmPoolName,
+					"vmPool":    *request.VmPoolTask.VmPoolName,
 				}).Info("Updated VM pool done")
 				p.Results <- request
 
