@@ -1,13 +1,14 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/banzaicloud/hollowtrees/recommender"
-	"net/http"
 	"fmt"
+	"net/http"
+
 	"github.com/banzaicloud/hollowtrees/engine"
-	"gopkg.in/go-playground/validator.v8"
 	"github.com/banzaicloud/hollowtrees/engine/aws"
+	"github.com/banzaicloud/hollowtrees/recommender"
+	"github.com/gin-gonic/gin"
+	"gopkg.in/go-playground/validator.v8"
 )
 
 func ConfigureRoutes(router *gin.Engine) {
@@ -22,7 +23,7 @@ func recommendSpotInstanceTypes(c *gin.Context) {
 	region := c.Param("region")
 	baseInstanceType := c.DefaultQuery("baseInstanceType", "m4.xlarge")
 	az := c.DefaultQuery("az", "")
-	if response, err := recommender.RecommendSpotInstanceTypes(region, baseInstanceType, az); err != nil {
+	if response, err := recommender.RecommendSpotInstanceTypes(region, az, baseInstanceType); err != nil {
 		// TODO: handle different error types
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": fmt.Sprintf("%s", err)})
 	} else {

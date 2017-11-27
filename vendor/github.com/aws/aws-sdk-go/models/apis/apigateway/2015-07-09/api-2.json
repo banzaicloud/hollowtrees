@@ -5,6 +5,7 @@
     "endpointPrefix":"apigateway",
     "protocol":"rest-json",
     "serviceFullName":"Amazon API Gateway",
+    "serviceId":"API Gateway",
     "signatureVersion":"v4",
     "uid":"apigateway-2015-07-09"
   },
@@ -1754,6 +1755,13 @@
     }
   },
   "shapes":{
+    "AccessLogSettings":{
+      "type":"structure",
+      "members":{
+        "format":{"shape":"String"},
+        "destinationArn":{"shape":"String"}
+      }
+    },
     "Account":{
       "type":"structure",
       "members":{
@@ -2638,9 +2646,11 @@
         "certificateArn":{"shape":"String"},
         "certificateUploadDate":{"shape":"Timestamp"},
         "regionalDomainName":{"shape":"String"},
+        "regionalHostedZoneId":{"shape":"String"},
         "regionalCertificateName":{"shape":"String"},
         "regionalCertificateArn":{"shape":"String"},
         "distributionDomainName":{"shape":"String"},
+        "distributionHostedZoneId":{"shape":"String"},
         "endpointConfiguration":{"shape":"EndpointConfiguration"}
       }
     },
@@ -3028,6 +3038,11 @@
           "shape":"NullableInteger",
           "location":"querystring",
           "locationName":"limit"
+        },
+        "locationStatus":{
+          "shape":"LocationStatusType",
+          "location":"querystring",
+          "locationName":"locationStatus"
         }
       }
     },
@@ -3745,6 +3760,7 @@
         "requestTemplates":{"shape":"MapOfStringToString"},
         "passthroughBehavior":{"shape":"String"},
         "contentHandling":{"shape":"ContentHandlingStrategy"},
+        "timeoutInMillis":{"shape":"Integer"},
         "cacheNamespace":{"shape":"String"},
         "cacheKeyParameters":{"shape":"ListOfString"},
         "integrationResponses":{"shape":"MapOfIntegrationResponse"}
@@ -3886,6 +3902,13 @@
     "ListOfUsagePlanKey":{
       "type":"list",
       "member":{"shape":"UsagePlanKey"}
+    },
+    "LocationStatusType":{
+      "type":"string",
+      "enum":[
+        "DOCUMENTED",
+        "UNDOCUMENTED"
+      ]
     },
     "Long":{"type":"long"},
     "MapOfHeaderValues":{
@@ -4097,7 +4120,8 @@
         "passthroughBehavior":{"shape":"String"},
         "cacheNamespace":{"shape":"String"},
         "cacheKeyParameters":{"shape":"ListOfString"},
-        "contentHandling":{"shape":"ContentHandlingStrategy"}
+        "contentHandling":{"shape":"ContentHandlingStrategy"},
+        "timeoutInMillis":{"shape":"NullableInteger"}
       }
     },
     "PutIntegrationResponseRequest":{
@@ -4389,6 +4413,7 @@
         "methodSettings":{"shape":"MapOfMethodSettings"},
         "variables":{"shape":"MapOfStringToString"},
         "documentationVersion":{"shape":"String"},
+        "accessLogSettings":{"shape":"AccessLogSettings"},
         "createdDate":{"shape":"Timestamp"},
         "lastUpdatedDate":{"shape":"Timestamp"}
       }

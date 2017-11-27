@@ -1,3 +1,133 @@
+Release v1.12.34 (2017-11-27)
+===
+
+### Service Client Updates
+* `service/data.mediastore`: Adds new service
+* `service/mediaconvert`: Adds new service
+  * AWS Elemental MediaConvert is a file-based video conversion service that transforms media into formats required for traditional broadcast and for internet streaming to multi-screen devices.
+* `service/medialive`: Adds new service
+  * AWS Elemental MediaLive is a video service that lets you easily create live outputs for broadcast and streaming delivery.
+* `service/mediapackage`: Adds new service
+  * AWS Elemental MediaPackage is a just-in-time video packaging and origination service that lets you format highly secure and reliable live outputs for a variety of devices.
+* `service/mediastore`: Adds new service
+  * AWS Elemental MediaStore is an AWS storage service optimized for media. It gives you the performance, consistency, and low latency required to deliver live and on-demand video content. AWS Elemental MediaStore acts as the origin store in your video workflow.
+
+Release v1.12.33 (2017-11-22)
+===
+
+### Service Client Updates
+* `service/acm`: Updates service API and documentation
+  * AWS Certificate Manager now supports the ability to import domainless certs and additional Key Types as well as an additional validation method for DNS.
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+
+Release v1.12.32 (2017-11-22)
+===
+
+### Service Client Updates
+* `service/apigateway`: Updates service API and documentation
+  * Add support for Access logs and customizable integration timeouts
+* `service/cloudformation`: Updates service API and documentation
+  * 1) Instance-level parameter overrides (CloudFormation-StackSet feature): This feature will allow the customers to override the template parameters on specific stackInstances. Customers will also have ability to update their existing instances with/without parameter-overrides using a new API "UpdateStackInstances"                                                                                                                                                                                                                                                         2) Add support for SSM parameters in CloudFormation - This feature will allow the customers to use Systems Manager parameters in CloudFormation templates. They will be able to see values for these parameters in Describe APIs.
+* `service/codebuild`: Updates service API and documentation
+  * Adding support for accessing Amazon VPC resources from AWS CodeBuild, dependency caching and build badges.
+* `service/elasticmapreduce`: Updates service API and documentation
+  * Enable Kerberos on Amazon EMR.
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+* `service/rekognition`: Updates service API and documentation
+  * This release includes updates to Amazon Rekognition for the following APIs. The new DetectText API allows you to recognize and extract textual content from images. Face Model Versioning has been added to operations that deal with face detection.
+* `service/shield`: Updates service API, documentation, and paginators
+  * The AWS Shield SDK has been updated in order to support Elastic IP address protections, the addition of AttackProperties objects in DescribeAttack responses, and a new GetSubscriptionState operation.
+* `service/storagegateway`: Updates service API and documentation
+  * AWS Storage Gateway now enables you to get notification when all your files written to your NFS file share have been uploaded to Amazon S3. Storage Gateway also enables guessing of the MIME type for uploaded objects based on file extensions.
+* `service/xray`: Updates service API, documentation, and paginators
+  * Added automatic pagination support for AWS X-Ray APIs in the SDKs that support this feature.
+
+Release v1.12.31 (2017-11-20)
+===
+
+### Service Client Updates
+* `service/apigateway`: Updates service documentation
+  * Documentation updates for Apigateway
+* `service/codecommit`: Updates service API, documentation, and paginators
+  * AWS CodeCommit now supports pull requests. You can use pull requests to collaboratively review code changes for minor changes or fixes, major feature additions, or new versions of your released software.
+* `service/firehose`: Updates service API and documentation
+  * This release includes a new Kinesis Firehose feature that supports Splunk as Kinesis Firehose delivery destination. You can now use Kinesis Firehose to ingest real-time data to Splunk in a serverless, reliable, and salable manner. This release also includes a new feature that allows you to configure Lambda buffer size in Kinesis Firehose data transformation feature. You can now customize the data buffer size before invoking Lambda function in Kinesis Firehose for data transformation. This feature allows you to flexibly trade-off processing and delivery latency with cost and efficiency based on your specific use cases and requirements.
+* `service/iis`: Adds new service
+  * The AWS Cost Explorer API gives customers programmatic access to AWS cost and usage information, allowing them to perform adhoc queries and build interactive cost management applications that leverage this dataset.
+* `service/kinesis`: Updates service API and documentation
+  * Customers can now obtain the important characteristics of their stream with DescribeStreamSummary. The response will not include the shard list for the stream but will have the number of open shards, and all the other fields included in the DescribeStream response.
+* `service/workdocs`: Updates service API and documentation
+  * DescribeGroups API and miscellaneous enhancements
+
+### SDK Bugs
+* `aws/client`: Retry delays for throttled exception were not limited to 5 mintues [#1654](https://github.com/aws/aws-sdk-go/pull/1654)
+  * Fixes [#1653](https://github.com/aws/aws-sdk-go/issues/1653)
+Release v1.12.30 (2017-11-17)
+===
+
+### Service Client Updates
+* `service/application-autoscaling`: Updates service API and documentation
+* `service/dms`: Updates service API, documentation, and paginators
+  * Support for migration task assessment. Support for data validation after the migration.
+* `service/elasticloadbalancingv2`: Updates service API and documentation
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+* `service/rds`: Updates service API and documentation
+  * Amazon RDS now supports importing MySQL databases by using backup files from Amazon S3.
+* `service/s3`: Updates service API
+  * Added ORC to the supported S3 Inventory formats.
+
+### SDK Bugs
+* `private/protocol/restjson`: Define JSONValue marshaling for body and querystring ([#1640](https://github.com/aws/aws-sdk-go/pull/1640))
+  * Adds support for APIs which use JSONValue for body and querystring targets.
+  * Fixes [#1636](https://github.com/aws/aws-sdk-go/issues/1636)
+Release v1.12.29 (2017-11-16)
+===
+
+### Service Client Updates
+* `service/application-autoscaling`: Updates service API and documentation
+* `service/ec2`: Updates service API
+  * You are now able to create and launch EC2 x1e smaller instance sizes
+* `service/glue`: Updates service API and documentation
+  * API update for AWS Glue. New crawler configuration attribute enables customers to specify crawler behavior. New XML classifier enables classification of XML data.
+* `service/opsworkscm`: Updates service API, documentation, and waiters
+  * Documentation updates for OpsWorks-cm: a new feature, OpsWorks for Puppet Enterprise, that allows users to create and manage OpsWorks-hosted Puppet Enterprise servers.
+* `service/organizations`: Updates service API, documentation, and paginators
+  * This release adds APIs that you can use to enable and disable integration with AWS services designed to work with AWS Organizations. This integration allows the AWS service to perform operations on your behalf on all of the accounts in your organization. Although you can use these APIs yourself, we recommend that you instead use the commands provided in the other AWS service to enable integration with AWS Organizations.
+* `service/route53`: Updates service API and documentation
+  * You can use Route 53's GetAccountLimit/GetHostedZoneLimit/GetReusableDelegationSetLimit APIs to view your current limits (including custom set limits) on Route 53 resources such as hosted zones and health checks. These APIs also return the number of each resource you're currently using to enable comparison against your current limits.
+
+Release v1.12.28 (2017-11-15)
+===
+
+### Service Client Updates
+* `service/apigateway`: Updates service API and documentation
+  * 1. Extended GetDocumentationParts operation to support retrieving documentation parts resources without contents.  2. Added hosted zone ID in the custom domain response.
+* `service/email`: Updates service API, documentation, and examples
+  * SES launches Configuration Set Reputation Metrics and Email Pausing Today, two features that build upon the capabilities of the reputation dashboard. The first is the ability to export reputation metrics for individual configuration sets. The second is the ability to temporarily pause email sending, either at the configuration set level, or across your entire Amazon SES account.
+* `service/polly`: Updates service API
+  * Amazon Polly adds Korean language support with new female voice - "Seoyeon" and new Indian English female voice - "Aditi"
+* `service/states`: Updates service API and documentation
+  * You can now use the UpdateStateMachine API to update your state machine definition and role ARN. Existing executions will continue to use the previous definition and role ARN. You can use the DescribeStateMachineForExecution API to determine which state machine definition and role ARN is associated with an execution
+
+Release v1.12.27 (2017-11-14)
+===
+
+### Service Client Updates
+* `service/ecs`: Updates service API and documentation
+  * Added new mode for Task Networking in ECS, called awsvpc mode. Mode configuration parameters to be passed in via awsvpcConfiguration. Updated APIs now use/show this new mode - RegisterTaskDefinition, CreateService, UpdateService, RunTask, StartTask.
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+* `service/lightsail`: Updates service API and documentation
+  * Lightsail now supports attached block storage, which allows you to scale your applications and protect application data with additional SSD-backed storage disks. This feature allows Lightsail customers to attach secure storage disks to their Lightsail instances and manage their attached disks, including creating and deleting disks, attaching and detaching disks from instances, and backing up disks via snapshot.
+* `service/route53`: Updates service API and documentation
+  * When a Route 53 health check or hosted zone is created by a linked AWS service, the object now includes information about the service that created it. Hosted zones or health checks that are created by a linked service can't be updated or deleted using Route 53.
+* `service/ssm`: Updates service API and documentation
+  * EC2 Systems Manager GetInventory API adds support for aggregation.
+
+### SDK Enhancements
+* `aws/request`: Remove default port from HTTP host header ([#1618](https://github.com/aws/aws-sdk-go/pull/1618))
+  * Updates the SDK to automatically remove default ports based on the URL's scheme when setting the HTTP Host header's value.
+  * Fixes [#1537](https://github.com/aws/aws-sdk-go/issues/1537)
+
 Release v1.12.26 (2017-11-09)
 ===
 
