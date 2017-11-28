@@ -1,14 +1,14 @@
 package aws
 
 import (
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
-	"github.com/sirupsen/logrus"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/banzaicloud/hollowtrees/recommender"
+	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/monitor/types"
+	"github.com/banzaicloud/hollowtrees/recommender"
+	"github.com/sirupsen/logrus"
 )
 
 var log *logrus.Logger
@@ -115,6 +115,7 @@ func (asgm *AutoScalingGroupManager) CollectVmPools() []*types.VmPoolTask {
 			if err != nil {
 				//TODO error handling
 			}
+			// TODO: cache the recommendation as well
 			recommendations, err := recommender.RecommendSpotInstanceTypes("eu-west-1", "eu-west-1a", "m4.xlarge")
 			if err != nil {
 				log.Info("couldn't get recommendations")
@@ -147,7 +148,7 @@ func (asgm *AutoScalingGroupManager) CollectVmPools() []*types.VmPoolTask {
 func isHollowtreesManaged(asg *autoscaling.Group) bool {
 	for _, tag := range asg.Tags {
 		if *tag.Key == "Hollowtrees" && *tag.Value == "true" {
-			return true;
+			return true
 			log.Info("Found a Hollowtrees managed AutoScaling Group: ", asg.AutoScalingGroupName)
 		}
 	}
