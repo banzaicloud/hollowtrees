@@ -22,7 +22,7 @@ type InstanceType struct {
 	spotBidPrice string
 }
 
-type InstanceTypes map[InstanceType]int
+type InstanceTypes map[InstanceType][]*string
 
 func New(region string) (*AutoScalingGroupManager, error) {
 	log = conf.Logger()
@@ -211,7 +211,7 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 					instType:     *instance.InstanceType,
 					spotBidPrice: "",
 				}
-				state[it] += 1
+				state[it] = append(state[it], instance.InstanceId)
 			}
 		}
 	}
@@ -229,7 +229,7 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 				instType:     *spotRequest.LaunchSpecification.InstanceType,
 				spotBidPrice: *spotRequest.SpotPrice,
 			}
-			state[it] += 1
+			state[it] = append(state[it], spotRequest.InstanceId)
 		}
 	}
 	log.Info("current state of instanceTypes in ASG: ", state)

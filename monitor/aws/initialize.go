@@ -56,11 +56,53 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	instType := instanceTypes[0]
 	log.Info("instance type: ", instType.InstanceTypeName)
 	// request spot instances instead
+	instanceIds := requestAndWaitSpotInstances(ec2Svc, originalDesiredCap, instType, launchConfig, group)
+	//if currentlyRunning == *originalDesiredCap {
+	log.Info("all instances are running")
+
+	// attach new instances to ASG
+	_, err = asgSvc.AttachInstances(&autoscaling.AttachInstancesInput{
+		InstanceIds:          instanceIds,
+		AutoScalingGroupName: group.AutoScalingGroupName,
+	})
+	if err != nil {
+		log.Info("failed to attach instances: ", err.Error())
+	}
+
+	// change back ASG min size to original
+	_, err = asgSvc.UpdateAutoScalingGroup(&autoscaling.UpdateAutoScalingGroupInput{
+		AutoScalingGroupName: group.AutoScalingGroupName,
+		MinSize:              originalMinSize,
+	})
+	if err != nil {
+		log.Info("couldn't update min size", err.Error())
+	}
+	//}
+	// wait until there are no pending instances in ASG
+	nrOfPending := *originalDesiredCap
+	for nrOfPending != 0 {
+		nrOfPending = 0
+		r, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{
+			AutoScalingGroupNames: []*string{group.AutoScalingGroupName},
+		})
+		if err != nil {
+			log.Info("couldn't describe ASG while checking it at the end")
+		}
+		for _, instance := range r.AutoScalingGroups[0].Instances {
+			if *instance.LifecycleState == "Pending" {
+				log.Info("found a pending instance: ", *instance.InstanceId)
+				nrOfPending++
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, count *int64, instanceTypeInfo recommender.InstanceTypeInfo, launchConfig autoscaling.LaunchConfiguration, group *autoscaling.Group) []*string {
 	requestSpotResult, err := ec2Svc.RequestSpotInstances(&ec2.RequestSpotInstancesInput{
-		InstanceCount: originalDesiredCap,
-		SpotPrice:     &instType.OnDemandPrice,
+		InstanceCount: count,
+		SpotPrice:     &instanceTypeInfo.OnDemandPrice,
 		LaunchSpecification: &ec2.RequestSpotLaunchSpecification{
-			InstanceType: &instType.InstanceTypeName,
+			InstanceType: &instanceTypeInfo.InstanceTypeName,
 			ImageId:      launchConfig.ImageId,
 			NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
 				{
@@ -87,7 +129,7 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	}
 	// collect instanceids of newly started spot instances
 	var instanceIds []*string
-	for int64(len(instanceIds)) != *originalDesiredCap {
+	for int64(len(instanceIds)) != *count {
 		instanceIds = []*string{}
 		spotRequests, err := ec2Svc.DescribeSpotInstanceRequests(&ec2.DescribeSpotInstanceRequestsInput{
 			SpotInstanceRequestIds: spotRequestIds,
@@ -109,17 +151,17 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	}
 	// wait until new instances are running
 	var currentlyRunning int64 = 0
-	for *originalDesiredCap != currentlyRunning {
+	for *count != currentlyRunning {
 		currentlyRunning = 0
 		log.Info("describing instances:")
-		desribeInstResult, err := ec2Svc.DescribeInstanceStatus(&ec2.DescribeInstanceStatusInput{
+		describeInstResult, err := ec2Svc.DescribeInstanceStatus(&ec2.DescribeInstanceStatusInput{
 			InstanceIds: instanceIds,
 		})
 		if err != nil {
 			log.Info("failed to describe instances ", err.Error())
 		}
-		log.Info("nr of instances in describe result ", len(desribeInstResult.InstanceStatuses))
-		for _, instanceStatus := range desribeInstResult.InstanceStatuses {
+		log.Info("nr of instances in describe result ", len(describeInstResult.InstanceStatuses))
+		for _, instanceStatus := range describeInstResult.InstanceStatuses {
 			log.Info(*instanceStatus.InstanceState.Name)
 			if *instanceStatus.InstanceState.Name == "running" {
 				currentlyRunning += 1
@@ -128,44 +170,5 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		log.Info("currently running ", currentlyRunning)
 		time.Sleep(1 * time.Second)
 	}
-	if currentlyRunning == *originalDesiredCap {
-		log.Info("all instances are running")
-
-		// attach new instances to ASG
-		_, err := asgSvc.AttachInstances(&autoscaling.AttachInstancesInput{
-			InstanceIds:          instanceIds,
-			AutoScalingGroupName: group.AutoScalingGroupName,
-		})
-		if err != nil {
-			log.Info("failed to attach instances: ", err.Error())
-		}
-		log.Info("")
-
-		// change back ASG min size to original
-		_, err2 := asgSvc.UpdateAutoScalingGroup(&autoscaling.UpdateAutoScalingGroupInput{
-			AutoScalingGroupName: group.AutoScalingGroupName,
-			MinSize:              originalMinSize,
-		})
-		if err2 != nil {
-			log.Info("couldn't update min size", err2.Error())
-		}
-	}
-	// wait until there are no pending instances in ASG
-	nrOfPending := *originalDesiredCap
-	for nrOfPending != 0 {
-		nrOfPending = 0
-		r, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{
-			AutoScalingGroupNames: []*string{group.AutoScalingGroupName},
-		})
-		if err != nil {
-			log.Info("couldn't describe ASG while checking it at the end")
-		}
-		for _, instance := range r.AutoScalingGroups[0].Instances {
-			if *instance.LifecycleState == "Pending" {
-				log.Info("found a pending instance: ", *instance.InstanceId)
-				nrOfPending++
-			}
-		}
-		time.Sleep(1 * time.Second)
-	}
+	return instanceIds
 }
