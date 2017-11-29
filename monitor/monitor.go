@@ -2,9 +2,10 @@ package monitor
 
 import (
 	"time"
-	"github.com/sirupsen/logrus"
+
 	"github.com/banzaicloud/hollowtrees/monitor/aws"
 	"github.com/banzaicloud/hollowtrees/monitor/types"
+	"github.com/sirupsen/logrus"
 )
 
 var log *logrus.Logger
@@ -14,7 +15,8 @@ type VmPoolRequest struct {
 }
 
 type VmPoolManager interface {
-	CollectVmPools() []*types.VmPoolTask
+	MonitorVmPools() []*types.VmPoolTask
+	ReevaluateVmPools() []*types.VmPoolTask
 	UpdateVmPool(vmPoolTask *types.VmPoolTask)
 }
 
@@ -27,5 +29,5 @@ func Start() {
 	poolRequestChan := make(chan VmPoolRequest, 100)
 	poolResponseChan := make(chan VmPoolRequest, 100)
 	NewDispatcher(10, poolRequestChan, poolResponseChan, vmPoolManager).Start()
-	NewCollector(3*time.Second, poolRequestChan, poolResponseChan, vmPoolManager).Start()
+	NewCollector(3*time.Second, 60*time.Second, poolRequestChan, poolResponseChan, vmPoolManager).Start()
 }

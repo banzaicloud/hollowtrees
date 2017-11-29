@@ -1,11 +1,12 @@
 package aws
 
 import (
+	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/banzaicloud/hollowtrees/recommender"
-	"github.com/aws/aws-sdk-go/aws"
-	"time"
 )
 
 func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
@@ -16,6 +17,7 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	})
 	if err != nil {
 		log.Error("something happened while polling ASGs" + err.Error())
+		//TODO: error handling
 	}
 	group := describeResult.AutoScalingGroups[0]
 	originalDesiredCap := group.DesiredCapacity
@@ -29,6 +31,7 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	})
 	if err != nil {
 		log.Info("error happened during updating to 0 desired", err.Error())
+		//TODO: error handling
 	}
 	log.Info(result)
 	log.Info("updated to 0 desired")
@@ -38,12 +41,14 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	})
 	if err != nil {
 		log.Error("something happened during describing launch configs" + err.Error())
+		//TODO: error handling
 	}
 	launchConfig := *launchConfigs.LaunchConfigurations[0]
 	log.Info("launch config instance type is", *launchConfig.InstanceType)
 	recommendations, err := recommender.RecommendSpotInstanceTypes("eu-west-1", "1a", *launchConfig.InstanceType)
 	if err != nil {
 		log.Error("couldn't recommend spot instance types" + err.Error())
+		//TODO: error handling
 	}
 	instanceTypes := recommendations["eu-west-1a"]
 	log.Info("recommendations in eu-west-1a are", instanceTypes)
@@ -62,7 +67,7 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 					DeviceIndex:              aws.Int64(0),
 					SubnetId:                 group.VPCZoneIdentifier,
 					AssociatePublicIpAddress: launchConfig.AssociatePublicIpAddress,
-					Groups:                   launchConfig.SecurityGroups,
+					Groups: launchConfig.SecurityGroups,
 				},
 			},
 			EbsOptimized: launchConfig.EbsOptimized,
@@ -164,4 +169,3 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		time.Sleep(1 * time.Second)
 	}
 }
-

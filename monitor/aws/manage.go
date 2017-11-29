@@ -38,11 +38,10 @@ func New(region string) (*AutoScalingGroupManager, error) {
 	}, nil
 }
 
-func (asgm *AutoScalingGroupManager) CollectVmPools() []*types.VmPoolTask {
+func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
 	var vmPoolTasks []*types.VmPoolTask
 	log = conf.Logger()
 	asgSvc := autoscaling.New(asgm.session, aws.NewConfig())
-	ec2Svc := ec2.New(asgm.session, aws.NewConfig())
 
 	result, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{})
 	if err != nil {
@@ -57,25 +56,7 @@ func (asgm *AutoScalingGroupManager) CollectVmPools() []*types.VmPoolTask {
 			continue
 		}
 
-		// collect instanceIds, and number of pending and terminating instances
-		nrOfPending := 0
-		nrOfTerminating := 0
-		instanceIds := []*string{}
-
-		if len(asg.Instances) > 0 {
-			for _, instance := range asg.Instances {
-				instanceIds = append(instanceIds, instance.InstanceId)
-				if *instance.LifecycleState == "Pending" {
-					nrOfPending++
-				} else if *instance.LifecycleState == "Terminating" {
-					nrOfTerminating++
-				}
-			}
-
-			log.WithFields(logrus.Fields{
-				"asg": *asg.AutoScalingGroupName,
-			}).Info("desired/current/pending:", *asg.DesiredCapacity, len(asg.Instances), nrOfPending)
-		}
+		nrOfPending, nrOfTerminating := getPendingAndTerminating(asg)
 
 		// ASG is initializing if the desired cap is not zero but the nr of instances is 0 or all of them are pending
 		if *asg.DesiredCapacity != 0 && (len(asg.Instances) == 0 || nrOfPending == len(asg.Instances)) {
@@ -106,12 +87,45 @@ func (asgm *AutoScalingGroupManager) CollectVmPools() []*types.VmPoolTask {
 			})
 			continue
 		}
+	}
+	return vmPoolTasks
+}
+
+func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
+	var vmPoolTasks []*types.VmPoolTask
+	log = conf.Logger()
+
+	asgSvc := autoscaling.New(asgm.session, aws.NewConfig())
+	ec2Svc := ec2.New(asgm.session, aws.NewConfig())
+
+	result, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{})
+	if err != nil {
+		log.Error("something happened while polling ASGs" + err.Error())
+		//TODO: error handling
+	}
+	log.Info("number of ASGs found:", len(result.AutoScalingGroups))
+
+	for _, asg := range result.AutoScalingGroups {
+
+		if !isHollowtreesManaged(asg) {
+			continue
+		}
+
+		nrOfPending, nrOfTerminating := getPendingAndTerminating(asg)
 
 		// ASG is running okay, but recommendation shows something else
 		if nrOfPending == 0 && nrOfTerminating == 0 {
+
+			var instanceIds []*string
+			if len(asg.Instances) > 0 {
+				for _, instance := range asg.Instances {
+					instanceIds = append(instanceIds, instance.InstanceId)
+				}
+			}
+
 			log.Info("there are no operations in progress, checking current state")
 			// TODO: cache this state
-			state, err := getCurrentInstanceTypeState(ec2Svc, instanceIds, asg)
+			state, err := getCurrentInstanceTypeState(ec2Svc, instanceIds)
 			if err != nil {
 				//TODO error handling
 			}
@@ -140,6 +154,8 @@ func (asgm *AutoScalingGroupManager) CollectVmPools() []*types.VmPoolTask {
 					break
 				}
 			}
+
+			// If launch config is not the same as the recommended one then create a launch config renew action
 		}
 	}
 	return vmPoolTasks
@@ -155,7 +171,26 @@ func isHollowtreesManaged(asg *autoscaling.Group) bool {
 	return false
 }
 
-func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string, asg *autoscaling.Group) (InstanceTypes, error) {
+func getPendingAndTerminating(asg *autoscaling.Group) (int, int) {
+	nrOfPending := 0
+	nrOfTerminating := 0
+	if len(asg.Instances) > 0 {
+		for _, instance := range asg.Instances {
+			if *instance.LifecycleState == "Pending" {
+				nrOfPending++
+			} else if *instance.LifecycleState == "Terminating" {
+				nrOfTerminating++
+			}
+		}
+
+		log.WithFields(logrus.Fields{
+			"asg": *asg.AutoScalingGroupName,
+		}).Info("desired/current/pending:", *asg.DesiredCapacity, len(asg.Instances), nrOfPending)
+	}
+	return nrOfPending, nrOfTerminating
+}
+
+func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (InstanceTypes, error) {
 	instances, err := ec2Svc.DescribeInstances(&ec2.DescribeInstancesInput{
 		InstanceIds: instanceIds,
 	})
@@ -202,7 +237,6 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string, asg *au
 }
 
 func (asgm *AutoScalingGroupManager) UpdateVmPool(vmPoolTask *types.VmPoolTask) {
-	// TODO: handle errors
 	switch *vmPoolTask.VmPoolAction {
 	case "initializing":
 		initializeASG(asgm, vmPoolTask.VmPoolName)
