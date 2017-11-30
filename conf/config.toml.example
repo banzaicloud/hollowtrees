@@ -4,3 +4,7 @@
 #logger settings
 logformat = "text"
 loglevel = "debug"
+
+# aws monitor settings
+[dev.aws]
+region = "eu-west-1"

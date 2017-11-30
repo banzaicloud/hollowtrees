@@ -20,9 +20,9 @@ type VmPoolManager interface {
 	UpdateVmPool(vmPoolTask *types.VmPoolTask)
 }
 
-func Start() {
-	// TODO: 100/100/10/3/eu-west-1 should come from configuration
-	vmPoolManager, err := aws.New("eu-west-1")
+func Start(region string) {
+	// TODO: 100/100/10/3 should come from configuration
+	vmPoolManager, err := aws.New(region)
 	if err != nil {
 		log.Fatal("Couldn't initialize VM Pool manager: ", err)
 	}

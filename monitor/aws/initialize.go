@@ -50,7 +50,8 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	}
 	launchConfig := *launchConfigs.LaunchConfigurations[0]
 	log.Info("launch config instance type is", *launchConfig.InstanceType)
-	recommendations, err := recommender.RecommendSpotInstanceTypes("eu-west-1", "1a", *launchConfig.InstanceType)
+	// TODO: handle AZs
+	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, "", *launchConfig.InstanceType)
 	if err != nil {
 		log.Error("couldn't recommend spot instance types" + err.Error())
 		//TODO: error handling
@@ -58,7 +59,7 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	instanceTypes := recommendations["eu-west-1a"]
 	log.Info("recommendations in eu-west-1a are", instanceTypes)
 	// TODO: use other instance types as well
-	selectedInstanceTypes := selectInstanceTypes(instanceTypes, *originalDesiredCap)
+	selectedInstanceTypes := selectInstanceTypesByCost(instanceTypes, *originalDesiredCap)
 	// request spot instances instead
 	instanceIds, err := requestAndWaitSpotInstances(ec2Svc, originalDesiredCap, selectedInstanceTypes, launchConfig, group)
 	if err != nil {
@@ -115,7 +116,7 @@ func (a ByCostScore) Less(i, j int) bool {
 	return costScore1 < costScore2
 }
 
-func selectInstanceTypes(instanceTypes []recommender.InstanceTypeInfo, nrOfInstances int64) []recommender.InstanceTypeInfo {
+func selectInstanceTypesByCost(instanceTypes []recommender.InstanceTypeInfo, nrOfInstances int64) []recommender.InstanceTypeInfo {
 	sort.Sort(sort.Reverse(ByCostScore(instanceTypes)))
 	if nrOfInstances < 2 || len(instanceTypes) < 2 {
 		return instanceTypes[:1]

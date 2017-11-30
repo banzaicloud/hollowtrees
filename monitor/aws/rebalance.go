@@ -34,7 +34,8 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		//TODO error handling
 	}
 	// TODO: cache the recommendation as well
-	recommendations, err := recommender.RecommendSpotInstanceTypes("eu-west-1", "eu-west-1a", "m4.xlarge")
+	// TODO: handle AZs
+	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, "", "m4.xlarge")
 	if err != nil {
 		log.Info("couldn't get recommendations")
 		//TODO error handling
@@ -65,7 +66,7 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 
 			// TODO: we should check the current diversification of the ASG and set the nrOfInstances accordingly
 			// TODO: this way we'll start 1 instance type if there was a 20 node on-demand cluster
-			selectedInstanceTypes := selectInstanceTypes(instanceTypes, 1)
+			selectedInstanceTypes := selectInstanceTypesByCost(instanceTypes, 1)
 
 			// start new, detach, wait, attach
 			instanceIdsToAttach, err := requestAndWaitSpotInstances(ec2Svc, aws.Int64(int64(len(instanceIdsOfType))), selectedInstanceTypes, *launchConfigs.LaunchConfigurations[0], group)

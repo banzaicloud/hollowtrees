@@ -19,6 +19,7 @@ type AutoScalingGroupManager struct {
 
 type InstanceType struct {
 	instType     string
+	az           string
 	spotBidPrice string
 }
 
@@ -129,8 +130,11 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 			if err != nil {
 				//TODO error handling
 			}
+
+			// if we have an instance that is not recommended in the AZ where it is placed then signal
+
 			// TODO: cache the recommendation as well
-			recommendations, err := recommender.RecommendSpotInstanceTypes("eu-west-1", "eu-west-1a", "m4.xlarge")
+			recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, "", "m4.xlarge")
 			if err != nil {
 				log.Info("couldn't get recommendations")
 				//TODO error handling
@@ -139,7 +143,7 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 			// If there is at least one spot instance that's not recommended then create a rebalancing action
 			for stateInfo := range state {
 				recommendationContains := false
-				for _, recommendation := range recommendations["eu-west-1a"] {
+				for _, recommendation := range recommendations[stateInfo.az] {
 					if stateInfo.spotBidPrice != "" && recommendation.InstanceTypeName == stateInfo.instType {
 						recommendationContains = true
 						break
@@ -209,6 +213,7 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 			} else {
 				it := InstanceType{
 					instType:     *instance.InstanceType,
+					az:           *instance.Placement.AvailabilityZone,
 					spotBidPrice: "",
 				}
 				state[it] = append(state[it], instance.InstanceId)
