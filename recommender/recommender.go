@@ -22,7 +22,7 @@ type InstanceTypeInfo struct {
 	AvgPriceFor24Hours float32
 	OnDemandPrice      string
 	SuggestedBidPrice  string
-	CostScore          float32
+	CostScore          string
 	StabilityScore     float32
 }
 
@@ -281,19 +281,38 @@ func getSpotPriceInfo(instanceTypes map[string]string) ([]InstanceTypeInfo, erro
 	}
 	var instanceTypeInfo []InstanceTypeInfo
 	spots := make(map[string]string)
+
+	maxPrice := 0.0
+	minPrice := 0.0
+	for _, spot := range history.SpotPriceHistory {
+		spotPrice, _ := strconv.ParseFloat(*spot.SpotPrice, 32)
+		if spotPrice > maxPrice {
+			maxPrice = spotPrice
+		}
+		if minPrice == 0.0 || spotPrice < minPrice {
+			minPrice = spotPrice
+		}
+	}
+
 	for _, spot := range history.SpotPriceHistory {
 		log.Info(*spot.InstanceType, ":", *spot.SpotPrice, " - ", *spot.AvailabilityZone, " - ", *spot.ProductDescription, " - ", *spot.Timestamp)
 		spots[*spot.InstanceType] = *spot.SpotPrice
 		instanceTypeInfo = append(instanceTypeInfo, InstanceTypeInfo{
 			InstanceTypeName:   *spot.InstanceType,
 			CurrentPrice:       *spot.SpotPrice,
-			AvgPriceFor24Hours: 0.1,
+			AvgPriceFor24Hours: 0.0,
 			OnDemandPrice:      instanceTypes[*spot.InstanceType],
 			SuggestedBidPrice:  instanceTypes[*spot.InstanceType],
-			CostScore:          0.3,
-			StabilityScore:     0.5,
+			CostScore:          normalizeSpotPrice(*spot.SpotPrice, maxPrice, minPrice),
+			StabilityScore:     0.0,
 		})
 	}
 	log.Info("Instance type info found: ", instanceTypeInfo)
 	return instanceTypeInfo, nil
+}
+
+func normalizeSpotPrice(spotPrice string, maxPrice float64, minPrice float64) string {
+	value, _ := strconv.ParseFloat(spotPrice, 32)
+	normalizedValue := 1 - ((value - minPrice) / (maxPrice - minPrice))
+	return strconv.FormatFloat(normalizedValue, 'f', 6, 64)
 }
