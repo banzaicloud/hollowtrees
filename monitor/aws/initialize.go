@@ -3,6 +3,11 @@ package aws
 import (
 	"time"
 
+	"strconv"
+	"strings"
+
+	"sort"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -53,11 +58,13 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	instanceTypes := recommendations["eu-west-1a"]
 	log.Info("recommendations in eu-west-1a are", instanceTypes)
 	// TODO: use other instance types as well
-	instType := instanceTypes[0]
-	log.Info("instance type: ", instType.InstanceTypeName)
+	selectedInstanceTypes := selectInstanceTypes(instanceTypes, *originalDesiredCap)
 	// request spot instances instead
-	instanceIds := requestAndWaitSpotInstances(ec2Svc, originalDesiredCap, instType, launchConfig, group)
-	//if currentlyRunning == *originalDesiredCap {
+	instanceIds, err := requestAndWaitSpotInstances(ec2Svc, originalDesiredCap, selectedInstanceTypes, launchConfig, group)
+	if err != nil {
+		//TODO: error handling
+		log.Error("couldn't request spot instances" + err.Error())
+	}
 	log.Info("all instances are running")
 
 	// attach new instances to ASG
@@ -97,38 +104,72 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		time.Sleep(1 * time.Second)
 	}
 }
-func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, count *int64, instanceTypeInfo recommender.InstanceTypeInfo, launchConfig autoscaling.LaunchConfiguration, group *autoscaling.Group) []*string {
-	requestSpotResult, err := ec2Svc.RequestSpotInstances(&ec2.RequestSpotInstancesInput{
-		InstanceCount: count,
-		SpotPrice:     &instanceTypeInfo.OnDemandPrice,
-		LaunchSpecification: &ec2.RequestSpotLaunchSpecification{
-			InstanceType: &instanceTypeInfo.InstanceTypeName,
-			ImageId:      launchConfig.ImageId,
-			NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
-				{
-					DeviceIndex:              aws.Int64(0),
-					SubnetId:                 group.VPCZoneIdentifier,
-					AssociatePublicIpAddress: launchConfig.AssociatePublicIpAddress,
-					Groups: launchConfig.SecurityGroups,
-				},
-			},
-			EbsOptimized: launchConfig.EbsOptimized,
-			IamInstanceProfile: &ec2.IamInstanceProfileSpecification{
-				Name: launchConfig.IamInstanceProfile,
-			},
-			KeyName:  launchConfig.KeyName,
-			UserData: launchConfig.UserData,
-		},
-	})
-	if err != nil {
-		log.Info("couldn't start instances", err.Error())
+
+type ByCostScore []recommender.InstanceTypeInfo
+
+func (a ByCostScore) Len() int      { return len(a) }
+func (a ByCostScore) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a ByCostScore) Less(i, j int) bool {
+	costScore1, _ := strconv.ParseFloat(strings.Split(a[i].CostScore, " ")[0], 32)
+	costScore2, _ := strconv.ParseFloat(strings.Split(a[j].CostScore, " ")[0], 32)
+	return costScore1 < costScore2
+}
+
+func selectInstanceTypes(instanceTypes []recommender.InstanceTypeInfo, nrOfInstances int64) []recommender.InstanceTypeInfo {
+	sort.Sort(sort.Reverse(ByCostScore(instanceTypes)))
+	if nrOfInstances < 2 || len(instanceTypes) < 2 {
+		return instanceTypes[:1]
+	} else if nrOfInstances < 9 || len(instanceTypes) < 3 {
+		return instanceTypes[:2]
+	} else if nrOfInstances < 20 || len(instanceTypes) < 4 {
+		return instanceTypes[:3]
+	} else {
+		return instanceTypes[:4]
 	}
-	var spotRequestIds []*string
-	for _, spotReq := range requestSpotResult.SpotInstanceRequests {
-		spotRequestIds = append(spotRequestIds, spotReq.SpotInstanceRequestId)
-	}
-	// collect instanceids of newly started spot instances
+}
+
+func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, count *int64, selectedInstanceTypes []recommender.InstanceTypeInfo, launchConfig autoscaling.LaunchConfiguration, group *autoscaling.Group) ([]*string, error) {
 	var instanceIds []*string
+	var spotRequestIds []*string
+	countPerType := *count / int64(len(selectedInstanceTypes))
+	remainderCount := *count % int64(len(selectedInstanceTypes))
+	for i, instanceType := range selectedInstanceTypes {
+		countForType := countPerType
+		if i == 0 {
+			countForType = countForType + remainderCount
+		}
+		requestSpotResult, err := ec2Svc.RequestSpotInstances(&ec2.RequestSpotInstancesInput{
+			InstanceCount: &countForType,
+			SpotPrice:     &instanceType.OnDemandPrice,
+			LaunchSpecification: &ec2.RequestSpotLaunchSpecification{
+				InstanceType: &instanceType.InstanceTypeName,
+				ImageId:      launchConfig.ImageId,
+				NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
+					{
+						DeviceIndex:              aws.Int64(0),
+						SubnetId:                 group.VPCZoneIdentifier,
+						AssociatePublicIpAddress: launchConfig.AssociatePublicIpAddress,
+						Groups: launchConfig.SecurityGroups,
+					},
+				},
+				EbsOptimized: launchConfig.EbsOptimized,
+				IamInstanceProfile: &ec2.IamInstanceProfileSpecification{
+					Name: launchConfig.IamInstanceProfile,
+				},
+				KeyName:  launchConfig.KeyName,
+				UserData: launchConfig.UserData,
+			},
+		})
+		if err != nil {
+			log.Info("couldn't request spot instances", err.Error())
+			return nil, err
+		}
+		for _, spotReq := range requestSpotResult.SpotInstanceRequests {
+			spotRequestIds = append(spotRequestIds, spotReq.SpotInstanceRequestId)
+		}
+	}
+
+	// collect instanceids of newly started spot instances
 	for int64(len(instanceIds)) != *count {
 		instanceIds = []*string{}
 		spotRequests, err := ec2Svc.DescribeSpotInstanceRequests(&ec2.DescribeSpotInstanceRequestsInput{
@@ -149,6 +190,7 @@ func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, count *int64, instanceTypeInfo
 		}
 		time.Sleep(1 * time.Second)
 	}
+
 	// wait until new instances are running
 	var currentlyRunning int64 = 0
 	for *count != currentlyRunning {
@@ -170,5 +212,5 @@ func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, count *int64, instanceTypeInfo
 		log.Info("currently running ", currentlyRunning)
 		time.Sleep(1 * time.Second)
 	}
-	return instanceIds
+	return instanceIds, nil
 }

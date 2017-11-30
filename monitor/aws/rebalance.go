@@ -63,11 +63,12 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 			instanceTypes := recommendations["eu-west-1a"]
 			log.Info("recommendations in eu-west-1a are", instanceTypes)
 
-			// TODO: use other instance types as well
-			instType := instanceTypes[0]
+			// TODO: we should check the current diversification of the ASG and set the nrOfInstances accordingly
+			// TODO: this way we'll start 1 instance type if there was a 20 node on-demand cluster
+			selectedInstanceTypes := selectInstanceTypes(instanceTypes, 1)
 
 			// start new, detach, wait, attach
-			instanceIdsToAttach := requestAndWaitSpotInstances(ec2Svc, aws.Int64(int64(len(instanceIdsOfType))), instType, *launchConfigs.LaunchConfigurations[0], group)
+			instanceIdsToAttach, err := requestAndWaitSpotInstances(ec2Svc, aws.Int64(int64(len(instanceIdsOfType))), selectedInstanceTypes, *launchConfigs.LaunchConfigurations[0], group)
 
 			// change ASG min size so we can detach instances
 			_, err = asgSvc.UpdateAutoScalingGroup(&autoscaling.UpdateAutoScalingGroupInput{
