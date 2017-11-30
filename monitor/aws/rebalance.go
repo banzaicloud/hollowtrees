@@ -3,6 +3,8 @@ package aws
 import (
 	"time"
 
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -34,8 +36,21 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		//TODO error handling
 	}
 	// TODO: cache the recommendation as well
-	// TODO: handle AZs
-	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, "", "m4.xlarge")
+	subnetIds := strings.Split(*group.VPCZoneIdentifier, ",")
+	subnets, err := ec2Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
+		SubnetIds: aws.StringSlice(subnetIds),
+	})
+	if err != nil {
+		log.Error("couldn't describe subnets" + err.Error())
+		//TODO: error handling
+	}
+
+	var azs []string
+	for _, subnet := range subnets.Subnets {
+		azs = append(azs, *subnet.AvailabilityZone)
+	}
+
+	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, azs, "m4.xlarge")
 	if err != nil {
 		log.Info("couldn't get recommendations")
 		//TODO error handling
@@ -66,7 +81,7 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 
 			// TODO: we should check the current diversification of the ASG and set the nrOfInstances accordingly
 			// TODO: this way we'll start 1 instance type if there was a 20 node on-demand cluster
-			selectedInstanceTypes := selectInstanceTypesByCost(instanceTypes, 1)
+			selectedInstanceTypes := selectInstanceTypesByCost(recommendations, 1)
 
 			// start new, detach, wait, attach
 			instanceIdsToAttach, err := requestAndWaitSpotInstances(ec2Svc, aws.Int64(int64(len(instanceIdsOfType))), selectedInstanceTypes, *launchConfigs.LaunchConfigurations[0], group)

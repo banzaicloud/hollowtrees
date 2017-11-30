@@ -64,10 +64,10 @@ func (a ByNumericValue) Less(i, j int) bool {
 	return floatVal < floatVal2
 }
 
-func RecommendSpotInstanceTypes(region string, az string, baseInstanceType string) (AZRecommendation, error) {
+func RecommendSpotInstanceTypes(region string, requestedAZs []string, baseInstanceType string) (AZRecommendation, error) {
 
 	log = conf.Logger()
-	log.Info("received recommendation request: region/az/baseInstanceType: ", region, "/", az, "/", baseInstanceType)
+	log.Info("received recommendation request: region/az/baseInstanceType: ", region, "/", requestedAZs, "/", baseInstanceType)
 
 	// TODO: validate region, az and base instance type
 
@@ -100,8 +100,8 @@ func RecommendSpotInstanceTypes(region string, az string, baseInstanceType strin
 
 	ec2Svc := ec2.New(sess, &aws.Config{Region: &region})
 	var azs []*string
-	if az != "" {
-		azs = append(azs, &az)
+	if requestedAZs != nil {
+		azs = aws.StringSlice(requestedAZs)
 	} else {
 		azsInRegion, err := ec2Svc.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{})
 		if err != nil {

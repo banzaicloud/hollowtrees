@@ -50,17 +50,36 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	}
 	launchConfig := *launchConfigs.LaunchConfigurations[0]
 	log.Info("launch config instance type is", *launchConfig.InstanceType)
-	// TODO: handle AZs
-	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, "", *launchConfig.InstanceType)
+
+	subnetIds := strings.Split(*group.VPCZoneIdentifier, ",")
+	subnets, err := ec2Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
+		SubnetIds: aws.StringSlice(subnetIds),
+	})
+	if err != nil {
+		log.Error("couldn't describe subnets" + err.Error())
+		//TODO: error handling
+	}
+
+	// make sure we're only adding an AZ once to the recommender
+	var azs map[string]bool
+	for _, subnet := range subnets.Subnets {
+		azs[*subnet.AvailabilityZone] = true
+	}
+
+	azList := make([]string, 0, len(azs))
+	for k := range azs {
+		azList = append(azList, k)
+	}
+
+	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, azList, *launchConfig.InstanceType)
 	if err != nil {
 		log.Error("couldn't recommend spot instance types" + err.Error())
 		//TODO: error handling
 	}
-	instanceTypes := recommendations["eu-west-1a"]
-	log.Info("recommendations in eu-west-1a are", instanceTypes)
-	// TODO: use other instance types as well
-	selectedInstanceTypes := selectInstanceTypesByCost(instanceTypes, *originalDesiredCap)
-	// request spot instances instead
+
+	log.Info("recommendations in selected AZs are", recommendations)
+	selectedInstanceTypes := selectInstanceTypesByCost(recommendations, *originalDesiredCap)
+
 	instanceIds, err := requestAndWaitSpotInstances(ec2Svc, originalDesiredCap, selectedInstanceTypes, launchConfig, group)
 	if err != nil {
 		//TODO: error handling
@@ -116,7 +135,15 @@ func (a ByCostScore) Less(i, j int) bool {
 	return costScore1 < costScore2
 }
 
-func selectInstanceTypesByCost(instanceTypes []recommender.InstanceTypeInfo, nrOfInstances int64) []recommender.InstanceTypeInfo {
+func selectInstanceTypesByCost(recommendation recommender.AZRecommendation, nrOfInstances int64) []recommender.InstanceTypeInfo {
+	// TODO: just to complile
+	// ****
+	var instanceTypes []recommender.InstanceTypeInfo
+	for _, v := range recommendation {
+		instanceTypes = v
+	}
+	// ****
+
 	sort.Sort(sort.Reverse(ByCostScore(instanceTypes)))
 	if nrOfInstances < 2 || len(instanceTypes) < 2 {
 		return instanceTypes[:1]

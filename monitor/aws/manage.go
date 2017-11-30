@@ -134,7 +134,7 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 			// if we have an instance that is not recommended in the AZ where it is placed then signal
 
 			// TODO: cache the recommendation as well
-			recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, "", "m4.xlarge")
+			recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, nil, "m4.xlarge")
 			if err != nil {
 				log.Info("couldn't get recommendations")
 				//TODO error handling

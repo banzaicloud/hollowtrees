@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"strings"
+
 	"github.com/banzaicloud/hollowtrees/engine"
 	"github.com/banzaicloud/hollowtrees/engine/aws"
 	"github.com/banzaicloud/hollowtrees/recommender"
@@ -22,8 +24,14 @@ func ConfigureRoutes(router *gin.Engine) {
 func recommendSpotInstanceTypes(c *gin.Context) {
 	region := c.Param("region")
 	baseInstanceType := c.DefaultQuery("baseInstanceType", "m4.xlarge")
-	az := c.DefaultQuery("az", "")
-	if response, err := recommender.RecommendSpotInstanceTypes(region, az, baseInstanceType); err != nil {
+	azsQuery := c.DefaultQuery("availabilityZones", "")
+	var azs []string
+	if azsQuery == "" {
+		azs = nil
+	} else {
+		azs = strings.Split(azsQuery, ",")
+	}
+	if response, err := recommender.RecommendSpotInstanceTypes(region, azs, baseInstanceType); err != nil {
 		// TODO: handle different error types
 		c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": fmt.Sprintf("%s", err)})
 	} else {
