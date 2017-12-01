@@ -71,16 +71,19 @@ func (c *Collector) Start() {
 			select {
 			case <-reevaluatingTicker.C:
 				log.Info("ticker triggered:", time.Now())
-				for _, vmPool := range c.VmPoolManager.ReevaluateVmPools() {
-					c.InProgress.Lock()
-					if !c.InProgress.r[*vmPool.VmPoolName] {
-						c.InProgress.r[*vmPool.VmPoolName] = true
-						c.Requests <- VmPoolRequest{VmPoolTask: vmPool}
-						log.Info("Pushing VM pool to processor queue ", *vmPool)
-					} else {
-						log.Info("A processor is already working on this VM pool, won't reevaluate it now. ", *vmPool)
+				vmPoolTasks := c.VmPoolManager.ReevaluateVmPools()
+				if vmPoolTasks != nil {
+					for _, vmPool := range vmPoolTasks {
+						c.InProgress.Lock()
+						if !c.InProgress.r[*vmPool.VmPoolName] {
+							c.InProgress.r[*vmPool.VmPoolName] = true
+							c.Requests <- VmPoolRequest{VmPoolTask: vmPool}
+							log.Info("Pushing VM pool to processor queue ", *vmPool)
+						} else {
+							log.Info("A processor is already working on this VM pool, won't reevaluate it now. ", *vmPool)
+						}
+						c.InProgress.Unlock()
 					}
-					c.InProgress.Unlock()
 				}
 				log.Info("ticker finished:", time.Now())
 			}

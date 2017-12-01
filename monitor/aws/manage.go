@@ -1,6 +1,8 @@
 package aws
 
 import (
+	"errors"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -129,6 +131,8 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 			state, err := getCurrentInstanceTypeState(ec2Svc, instanceIds)
 			if err != nil {
 				//TODO error handling
+				log.Info(err.Error())
+				return nil
 			}
 
 			// if we have an instance that is not recommended in the AZ where it is placed then signal
@@ -145,6 +149,7 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 				recommendationContains := false
 				for _, recommendation := range recommendations[stateInfo.az] {
 					if stateInfo.spotBidPrice != "" && recommendation.InstanceTypeName == stateInfo.instType {
+						log.Info("recommendation contains: ", stateInfo.instType, " for AZ: ", stateInfo.az)
 						recommendationContains = true
 						break
 					}
@@ -159,7 +164,7 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 				}
 			}
 
-			// If launch config is not the same as the recommended one then create a launch config renew action
+			// TODO: If launch config is not the same as the recommended one then create a launch config renew action
 		}
 	}
 	return vmPoolTasks
@@ -195,6 +200,9 @@ func getPendingAndTerminating(asg *autoscaling.Group) (int, int) {
 }
 
 func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (InstanceTypes, error) {
+	if len(instanceIds) < 1 {
+		return nil, errors.New("number of instance ids cannot be less than 1")
+	}
 	instances, err := ec2Svc.DescribeInstances(&ec2.DescribeInstancesInput{
 		InstanceIds: instanceIds,
 	})
@@ -232,6 +240,7 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 		for _, spotRequest := range output.SpotInstanceRequests {
 			it := InstanceType{
 				instType:     *spotRequest.LaunchSpecification.InstanceType,
+				az:           *spotRequest.LaunchedAvailabilityZone,
 				spotBidPrice: *spotRequest.SpotPrice,
 			}
 			state[it] = append(state[it], spotRequest.InstanceId)

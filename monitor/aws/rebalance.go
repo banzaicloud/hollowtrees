@@ -1,9 +1,8 @@
 package aws
 
 import (
-	"time"
-
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -79,9 +78,6 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 				log.Error("something happened during describing launch configs" + err.Error())
 				//TODO: error handling
 			}
-
-			instanceTypes := recommendations["eu-west-1a"]
-			log.Info("recommendations in eu-west-1a are", instanceTypes)
 
 			// TODO: we should check the current diversification of the ASG and set the nrOfInstances accordingly
 			// TODO: this way we'll start 1 instance type if there was a 20 node on-demand cluster
