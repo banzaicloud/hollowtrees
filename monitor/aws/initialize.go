@@ -60,14 +60,13 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		//TODO: error handling
 	}
 
-	// make sure we're only adding an AZ once to the recommender
-	var azs map[string]bool
+	subnetsPerAz := make(map[string][]string)
 	for _, subnet := range subnets.Subnets {
-		azs[*subnet.AvailabilityZone] = true
+		subnetsPerAz[*subnet.AvailabilityZone] = append(subnetsPerAz[*subnet.AvailabilityZone], *subnet.SubnetId)
 	}
 
-	azList := make([]string, 0, len(azs))
-	for k := range azs {
+	azList := make([]string, 0, len(subnetsPerAz))
+	for k := range subnetsPerAz {
 		azList = append(azList, k)
 	}
 
@@ -76,11 +75,23 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		log.Error("couldn't recommend spot instance types" + err.Error())
 		//TODO: error handling
 	}
-
 	log.Info("recommendations in selected AZs are", recommendations)
-	selectedInstanceTypes := selectInstanceTypesByCost(recommendations, *originalDesiredCap)
 
-	instanceIds, err := requestAndWaitSpotInstances(ec2Svc, originalDesiredCap, selectedInstanceTypes, launchConfig, group)
+	i := 0
+	selectedInstanceTypes := make(map[string][]recommender.InstanceTypeInfo)
+	countsPerAz := make(map[string]int64)
+	for az, recommendedTypes := range recommendations {
+		countInAZ := *originalDesiredCap / int64(len(azList))
+		remainderCount := *originalDesiredCap % int64(len(azList))
+		if i == 0 {
+			countInAZ = countInAZ + remainderCount
+		}
+		countsPerAz[az] = countInAZ
+		selectedInstanceTypes[az] = selectInstanceTypesByCost(recommendedTypes, countInAZ)
+		i++
+	}
+
+	instanceIds, err := requestAndWaitSpotInstances(ec2Svc, countsPerAz, subnetsPerAz, selectedInstanceTypes, launchConfig)
 	if err != nil {
 		//TODO: error handling
 		log.Error("couldn't request spot instances" + err.Error())
@@ -135,70 +146,110 @@ func (a ByCostScore) Less(i, j int) bool {
 	return costScore1 < costScore2
 }
 
-func selectInstanceTypesByCost(recommendation recommender.AZRecommendation, nrOfInstances int64) []recommender.InstanceTypeInfo {
-	// TODO: just to complile
-	// ****
-	var instanceTypes []recommender.InstanceTypeInfo
-	for _, v := range recommendation {
-		instanceTypes = v
-	}
-	// ****
-
-	sort.Sort(sort.Reverse(ByCostScore(instanceTypes)))
-	if nrOfInstances < 2 || len(instanceTypes) < 2 {
-		return instanceTypes[:1]
-	} else if nrOfInstances < 9 || len(instanceTypes) < 3 {
-		return instanceTypes[:2]
-	} else if nrOfInstances < 20 || len(instanceTypes) < 4 {
-		return instanceTypes[:3]
+func selectInstanceTypesByCost(recommendations []recommender.InstanceTypeInfo, nrOfInstances int64) []recommender.InstanceTypeInfo {
+	sort.Sort(sort.Reverse(ByCostScore(recommendations)))
+	if nrOfInstances < 2 || len(recommendations) < 2 {
+		return recommendations[:1]
+	} else if nrOfInstances < 9 || len(recommendations) < 3 {
+		return recommendations[:2]
+	} else if nrOfInstances < 20 || len(recommendations) < 4 {
+		return recommendations[:3]
 	} else {
-		return instanceTypes[:4]
+		return recommendations[:4]
 	}
 }
 
-func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, count *int64, selectedInstanceTypes []recommender.InstanceTypeInfo, launchConfig autoscaling.LaunchConfiguration, group *autoscaling.Group) ([]*string, error) {
+func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, countsPerAZ map[string]int64, subnetsPerAZ map[string][]string, selectedInstanceTypes map[string][]recommender.InstanceTypeInfo, launchConfig autoscaling.LaunchConfiguration) ([]*string, error) {
 	var instanceIds []*string
 	var spotRequestIds []*string
-	countPerType := *count / int64(len(selectedInstanceTypes))
-	remainderCount := *count % int64(len(selectedInstanceTypes))
-	for i, instanceType := range selectedInstanceTypes {
-		countForType := countPerType
-		if i == 0 {
-			countForType = countForType + remainderCount
-		}
-		requestSpotResult, err := ec2Svc.RequestSpotInstances(&ec2.RequestSpotInstancesInput{
-			InstanceCount: &countForType,
-			SpotPrice:     &instanceType.OnDemandPrice,
-			LaunchSpecification: &ec2.RequestSpotLaunchSpecification{
-				InstanceType: &instanceType.InstanceTypeName,
-				ImageId:      launchConfig.ImageId,
-				NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
-					{
-						DeviceIndex:              aws.Int64(0),
-						SubnetId:                 group.VPCZoneIdentifier,
-						AssociatePublicIpAddress: launchConfig.AssociatePublicIpAddress,
-						Groups: launchConfig.SecurityGroups,
-					},
-				},
-				EbsOptimized: launchConfig.EbsOptimized,
-				IamInstanceProfile: &ec2.IamInstanceProfileSpecification{
-					Name: launchConfig.IamInstanceProfile,
-				},
-				KeyName:  launchConfig.KeyName,
-				UserData: launchConfig.UserData,
-			},
-		})
-		if err != nil {
-			log.Info("couldn't request spot instances", err.Error())
-			return nil, err
-		}
-		for _, spotReq := range requestSpotResult.SpotInstanceRequests {
-			spotRequestIds = append(spotRequestIds, spotReq.SpotInstanceRequestId)
+
+	log.Info("counts per az: ", countsPerAZ)
+	log.Info("subnets per az: ", subnetsPerAZ)
+	log.Info("selected instance types: ", selectedInstanceTypes)
+
+	for az, selectedInstanceTypesInAZ := range selectedInstanceTypes {
+		log.Info("az process started: ", az)
+		log.Info("selected instance types here are: ", selectedInstanceTypesInAZ)
+		totalCountInAZ := countsPerAZ[az]
+		countPerType := totalCountInAZ / int64(len(selectedInstanceTypesInAZ))
+		remainderCount := totalCountInAZ % int64(len(selectedInstanceTypesInAZ))
+
+		log.Info("total count in az: ", totalCountInAZ)
+		log.Info("count per type: ", countPerType)
+		log.Info("remainder: ", remainderCount)
+
+		for i, instanceType := range selectedInstanceTypesInAZ {
+			log.Info("selected instance type: ", i, instanceType)
+			countForType := countPerType
+			if i == 0 {
+				countForType = countForType + remainderCount
+			}
+
+			log.Info("count for type: ", countForType)
+
+			subnetsInAZ := subnetsPerAZ[az]
+
+			log.Info("subnets in AZ: ", subnetsInAZ)
+
+			itCountPerSubnet := countForType / int64(len(subnetsInAZ))
+			remainderItCount := countForType % int64(len(subnetsInAZ))
+
+			log.Info("instance type count per subnet: ", itCountPerSubnet)
+			log.Info("remainder: ", remainderItCount)
+
+			for i, subnet := range subnetsInAZ {
+				log.Info("processing subnet: ", subnet)
+
+				itCountForSubnet := itCountPerSubnet
+				if i == 0 {
+					itCountForSubnet = itCountForSubnet + remainderItCount
+				}
+
+				log.Info("it count for subnet: ", itCountForSubnet)
+
+				if itCountForSubnet != 0 {
+					requestSpotResult, err := ec2Svc.RequestSpotInstances(&ec2.RequestSpotInstancesInput{
+						InstanceCount: &itCountForSubnet,
+						SpotPrice:     &instanceType.OnDemandPrice,
+						LaunchSpecification: &ec2.RequestSpotLaunchSpecification{
+							InstanceType: &instanceType.InstanceTypeName,
+							ImageId:      launchConfig.ImageId,
+							NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
+								{
+									DeviceIndex:              aws.Int64(0),
+									SubnetId:                 &subnet,
+									AssociatePublicIpAddress: launchConfig.AssociatePublicIpAddress,
+									Groups: launchConfig.SecurityGroups,
+								},
+							},
+							EbsOptimized: launchConfig.EbsOptimized,
+							IamInstanceProfile: &ec2.IamInstanceProfileSpecification{
+								Name: launchConfig.IamInstanceProfile,
+							},
+							KeyName:  launchConfig.KeyName,
+							UserData: launchConfig.UserData,
+						},
+					})
+					if err != nil {
+						log.Info("couldn't request spot instances", err.Error())
+						//return nil, err
+					}
+					for _, spotReq := range requestSpotResult.SpotInstanceRequests {
+						spotRequestIds = append(spotRequestIds, spotReq.SpotInstanceRequestId)
+					}
+				}
+			}
 		}
 	}
 
+	var totalCount int64
+
+	for _, countInAz := range countsPerAZ {
+		totalCount += countInAz
+	}
+
 	// collect instanceids of newly started spot instances
-	for int64(len(instanceIds)) != *count {
+	for int64(len(instanceIds)) != totalCount {
 		instanceIds = []*string{}
 		spotRequests, err := ec2Svc.DescribeSpotInstanceRequests(&ec2.DescribeSpotInstanceRequestsInput{
 			SpotInstanceRequestIds: spotRequestIds,
@@ -221,7 +272,7 @@ func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, count *int64, selectedInstance
 
 	// wait until new instances are running
 	var currentlyRunning int64 = 0
-	for *count != currentlyRunning {
+	for totalCount != currentlyRunning {
 		currentlyRunning = 0
 		log.Info("describing instances:")
 		describeInstResult, err := ec2Svc.DescribeInstanceStatus(&ec2.DescribeInstanceStatusInput{

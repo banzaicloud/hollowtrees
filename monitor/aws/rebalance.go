@@ -45,18 +45,22 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		//TODO: error handling
 	}
 
-	var azs []string
+	subnetsPerAz := make(map[string][]string)
 	for _, subnet := range subnets.Subnets {
-		azs = append(azs, *subnet.AvailabilityZone)
+		subnetsPerAz[*subnet.AvailabilityZone] = append(subnetsPerAz[*subnet.AvailabilityZone], *subnet.SubnetId)
 	}
 
-	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, azs, "m4.xlarge")
+	azList := make([]string, 0, len(subnetsPerAz))
+	for k := range subnetsPerAz {
+		azList = append(azList, k)
+	}
+
+	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, azList, "m4.xlarge")
 	if err != nil {
 		log.Info("couldn't get recommendations")
 		//TODO error handling
 	}
 
-	// If there is at least one spot instance that's not recommended then create a rebalancing action
 	for stateInfo, instanceIdsOfType := range state {
 		recommendationContains := false
 		for _, recommendation := range recommendations["eu-west-1a"] {
@@ -81,10 +85,23 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 
 			// TODO: we should check the current diversification of the ASG and set the nrOfInstances accordingly
 			// TODO: this way we'll start 1 instance type if there was a 20 node on-demand cluster
-			selectedInstanceTypes := selectInstanceTypesByCost(recommendations, 1)
+
+			i := 0
+			selectedInstanceTypes := make(map[string][]recommender.InstanceTypeInfo)
+			countsPerAz := make(map[string]int64)
+			for az, recommendedTypes := range recommendations {
+				countInAZ := int64(len(instanceIdsOfType) / len(azList))
+				remainderCount := int64(len(instanceIdsOfType) % len(azList))
+				if i == 0 {
+					countInAZ = countInAZ + remainderCount
+				}
+				countsPerAz[az] = countInAZ
+				selectedInstanceTypes[az] = selectInstanceTypesByCost(recommendedTypes, countInAZ)
+				i++
+			}
 
 			// start new, detach, wait, attach
-			instanceIdsToAttach, err := requestAndWaitSpotInstances(ec2Svc, aws.Int64(int64(len(instanceIdsOfType))), selectedInstanceTypes, *launchConfigs.LaunchConfigurations[0], group)
+			instanceIdsToAttach, err := requestAndWaitSpotInstances(ec2Svc, countsPerAz, subnetsPerAz, selectedInstanceTypes, *launchConfigs.LaunchConfigurations[0])
 
 			// change ASG min size so we can detach instances
 			_, err = asgSvc.UpdateAutoScalingGroup(&autoscaling.UpdateAutoScalingGroupInput{
