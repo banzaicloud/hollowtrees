@@ -2,6 +2,7 @@ package aws
 
 import (
 	"strings"
+
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -33,8 +34,10 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 	state, err := getCurrentInstanceTypeState(ec2Svc, instanceIds)
 	if err != nil {
 		//TODO error handling
+		log.Info(err.Error())
+		return
 	}
-	// TODO: cache the recommendation as well
+
 	subnetIds := strings.Split(*group.VPCZoneIdentifier, ",")
 	subnets, err := ec2Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
 		SubnetIds: aws.StringSlice(subnetIds),
@@ -62,7 +65,7 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 
 	for stateInfo, instanceIdsOfType := range state {
 		recommendationContains := false
-		for _, recommendation := range recommendations["eu-west-1a"] {
+		for _, recommendation := range recommendations[stateInfo.az] {
 			if stateInfo.spotBidPrice != "" && recommendation.InstanceTypeName == stateInfo.instType {
 				recommendationContains = true
 				break
@@ -79,22 +82,14 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 				//TODO: error handling
 			}
 
-			// TODO: we should check the current diversification of the ASG and set the nrOfInstances accordingly
-			// TODO: this way we'll start 1 instance type if there was a 20 node on-demand cluster
+			// TODO: we should check the current diversification of the ASG and set the selected instance types accordingly
+			// TODO: this way it's possible that if there's 100 instances in AZ-1a, 25 of them is of type A and no longer recommended
+			// TODO: selectInstanceTypesByCost will select 4 different types because it's 25
 
-			i := 0
 			selectedInstanceTypes := make(map[string][]recommender.InstanceTypeInfo)
+			selectedInstanceTypes[stateInfo.az] = selectInstanceTypesByCost(recommendations[stateInfo.az], int64(len(instanceIdsOfType)))
 			countsPerAz := make(map[string]int64)
-			for az, recommendedTypes := range recommendations {
-				countInAZ := int64(len(instanceIdsOfType) / len(azList))
-				remainderCount := int64(len(instanceIdsOfType) % len(azList))
-				if i == 0 {
-					countInAZ = countInAZ + remainderCount
-				}
-				countsPerAz[az] = countInAZ
-				selectedInstanceTypes[az] = selectInstanceTypesByCost(recommendedTypes, countInAZ)
-				i++
-			}
+			countsPerAz[stateInfo.az] = int64(len(instanceIdsOfType))
 
 			// start new, detach, wait, attach
 			instanceIdsToAttach, err := requestAndWaitSpotInstances(ec2Svc, countsPerAz, subnetsPerAz, selectedInstanceTypes, *launchConfigs.LaunchConfigurations[0])
@@ -109,7 +104,7 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 			}
 
 			// TODO: we shouldn't detach all instances at once, we can stick to the minsize of the group and only detach
-			// as many instances as we can until the minsize, then start it again
+			// TODO: as many instances as we can until the minsize, then start it again
 			_, err = asgSvc.DetachInstances(&autoscaling.DetachInstancesInput{
 				AutoScalingGroupName:           group.AutoScalingGroupName,
 				ShouldDecrementDesiredCapacity: aws.Bool(true),
@@ -119,15 +114,12 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 				log.Info("failed to detach instances: ", err.Error())
 			}
 
-			// TODO: terminate detached instances
 			_, err = ec2Svc.TerminateInstances(&ec2.TerminateInstancesInput{
 				InstanceIds: instanceIdsOfType,
 			})
 			if err != nil {
 				log.Info("failed to terminate instances: ", err.Error())
 			}
-
-			// TODO: code is duplicated in initialize code
 
 			_, err = asgSvc.AttachInstances(&autoscaling.AttachInstancesInput{
 				InstanceIds:          instanceIdsToAttach,
@@ -165,8 +157,6 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 				}
 				time.Sleep(1 * time.Second)
 			}
-			log.Info("")
-
 		}
 	}
 }
