@@ -3,6 +3,8 @@ package aws
 import (
 	"errors"
 
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
@@ -91,6 +93,7 @@ func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
 			continue
 		}
 	}
+
 	return vmPoolTasks
 }
 
@@ -108,11 +111,15 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 	}
 	log.Info("number of ASGs found:", len(result.AutoScalingGroups))
 
+	var managedASGNames []string
+
 	for _, asg := range result.AutoScalingGroups {
 
 		if !isHollowtreesManaged(asg) {
 			continue
 		}
+
+		managedASGNames = append(managedASGNames, *asg.AutoScalingGroupName)
 
 		nrOfPending, nrOfTerminating := getPendingAndTerminating(asg)
 
@@ -167,6 +174,9 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 			// TODO: If launch config is not the same as the recommended one then create a launch config renew action
 		}
 	}
+
+	cleanupLCs(asgSvc, managedASGNames)
+
 	return vmPoolTasks
 }
 
@@ -250,6 +260,43 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 	return state, err
 }
 
+func cleanupLCs(asgSvc *autoscaling.AutoScaling, managedASGNames []string) {
+	lcResult, err := asgSvc.DescribeLaunchConfigurations(&autoscaling.DescribeLaunchConfigurationsInput{})
+	if err != nil {
+		log.Error("something happened while polling LCs" + err.Error())
+		//TODO: error handling
+	}
+	log.Info("number of LCs found:", len(lcResult.LaunchConfigurations))
+	for _, lc := range lcResult.LaunchConfigurations {
+		var asgName = ""
+		if strings.HasSuffix(*lc.LaunchConfigurationName, "-ht-orig") {
+			asgName = strings.TrimSuffix(*lc.LaunchConfigurationName, "-ht-orig")
+		} else if strings.HasSuffix(*lc.LaunchConfigurationName, "-ht-1") {
+			asgName = strings.TrimSuffix(*lc.LaunchConfigurationName, "-ht-1")
+		} else if strings.HasSuffix(*lc.LaunchConfigurationName, "-ht-2") {
+			asgName = strings.TrimSuffix(*lc.LaunchConfigurationName, "-ht-2")
+		}
+
+		if asgName != "" {
+			foundASG := false
+			for _, managedASGName := range managedASGNames {
+				if asgName == managedASGName {
+					foundASG = true
+				}
+			}
+			if !foundASG {
+				_, err = asgSvc.DeleteLaunchConfiguration(&autoscaling.DeleteLaunchConfigurationInput{
+					LaunchConfigurationName: lc.LaunchConfigurationName,
+				})
+				if err != nil {
+					log.Error("couldn't clean up LC: " + err.Error())
+					//TODO: error handling
+				}
+			}
+		}
+	}
+}
+
 func (asgm *AutoScalingGroupManager) UpdateVmPool(vmPoolTask *types.VmPoolTask) {
 	switch *vmPoolTask.VmPoolAction {
 	case "initializing":
@@ -261,5 +308,5 @@ func (asgm *AutoScalingGroupManager) UpdateVmPool(vmPoolTask *types.VmPoolTask) 
 	case "rebalancing":
 		rebalanceASG(asgm, vmPoolTask.VmPoolName)
 	}
-	//TODO: updateLaunchConfig here
+	updateLaunchConfig(asgm, vmPoolTask.VmPoolName)
 }
