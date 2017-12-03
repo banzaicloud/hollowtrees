@@ -21,6 +21,10 @@ func updateLaunchConfig(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		log.Error("something happened while polling ASGs" + err.Error())
 		//TODO: error handling
 	}
+	if len(describeAsgResult.AutoScalingGroups) < 1 {
+		log.Error("Autoscaling group is probably deleted.")
+		return
+	}
 	group := describeAsgResult.AutoScalingGroups[0]
 	log.Info("Described ASG, name is: ", *group.AutoScalingGroupName)
 
