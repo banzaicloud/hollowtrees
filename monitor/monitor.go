@@ -25,14 +25,13 @@ type VmPoolManager interface {
 	UpdateVmPool(vmPoolTask *types.VmPoolTask)
 }
 
-func Start(region string) {
-	// TODO: 100/100/10/3 should come from configuration
+func Start(region string, bufferSize int, nrOfProcessors int, monitorInterval time.Duration, reevaluateInterval time.Duration) {
 	vmPoolManager, err := aws.New(region)
 	if err != nil {
 		log.Fatal("Couldn't initialize VM Pool manager: ", err)
 	}
-	poolRequestChan := make(chan VmPoolRequest, 100)
-	poolResponseChan := make(chan VmPoolRequest, 100)
-	NewDispatcher(10, poolRequestChan, poolResponseChan, vmPoolManager).Start()
-	NewCollector(3*time.Second, 60*time.Second, poolRequestChan, poolResponseChan, vmPoolManager).Start()
+	poolRequestChan := make(chan VmPoolRequest, bufferSize)
+	poolResponseChan := make(chan VmPoolRequest, bufferSize)
+	NewDispatcher(nrOfProcessors, poolRequestChan, poolResponseChan, vmPoolManager).Start()
+	NewCollector(monitorInterval, reevaluateInterval, poolRequestChan, poolResponseChan, vmPoolManager).Start()
 }

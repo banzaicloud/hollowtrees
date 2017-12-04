@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -67,7 +69,11 @@ func (a ByNumericValue) Less(i, j int) bool {
 
 func RecommendSpotInstanceTypes(region string, requestedAZs []string, baseInstanceType string) (AZRecommendation, error) {
 
-	log.Info("received recommendation request: region/az/baseInstanceType: ", region, "/", requestedAZs, "/", baseInstanceType)
+	log.WithFields(logrus.Fields{
+		"region":             region,
+		"availability zones": requestedAZs,
+		"instance type":      baseInstanceType,
+	}).Info("received recommendation request")
 
 	// TODO: validate region, az and base instance type
 
@@ -103,6 +109,7 @@ func RecommendSpotInstanceTypes(region string, requestedAZs []string, baseInstan
 	if requestedAZs != nil {
 		azs = aws.StringSlice(requestedAZs)
 	} else {
+		log.Info("Describing availability zones in region: ", region)
 		azsInRegion, err := ec2Svc.DescribeAvailabilityZones(&ec2.DescribeAvailabilityZonesInput{})
 		if err != nil {
 			log.Info(err.Error())
@@ -127,7 +134,9 @@ func RecommendSpotInstanceTypes(region string, requestedAZs []string, baseInstan
 }
 
 func getBaseProductInfo(pricingSvc *pricing.Pricing, region string, baseInstanceType string) (string, string, error) {
-	log.Info("getting product info (memory,vcpu) of base instance type: ", baseInstanceType)
+	log.WithFields(logrus.Fields{
+		"instance type": baseInstanceType,
+	}).Info("Getting product info (memory, vcpu) of instance type")
 	products, err := pricingSvc.GetProducts(&pricing.GetProductsInput{
 		ServiceCode: aws.String("AmazonEC2"),
 		Filters: []*pricing.Filter{
@@ -295,7 +304,10 @@ func getSpotPriceInfo(region string, az *string, instanceTypes map[string]string
 	for k := range instanceTypes {
 		instanceTypeStrings = append(instanceTypeStrings, aws.String(k))
 	}
-	log.Info("Getting current spot price of these instance types: ", instanceTypeStrings)
+	log.WithFields(logrus.Fields{
+		"instance types":    aws.StringValueSlice(instanceTypeStrings),
+		"availability zone": *az,
+	}).Info("Getting current spot price of instance types")
 	ec2Svc := ec2.New(sess, &aws.Config{Region: &region})
 
 	history, err := ec2Svc.DescribeSpotPriceHistory(&ec2.DescribeSpotPriceHistoryInput{
@@ -338,13 +350,18 @@ func getSpotPriceInfo(region string, az *string, instanceTypes map[string]string
 			StabilityScore:     0.0,
 		})
 	}
-	log.Info("Instance type info found: ", instanceTypeInfo)
+	log.Info(fmt.Sprintf("Instance type info found: %#v", instanceTypeInfo))
 
 	return instanceTypeInfo, nil
 }
 
 func normalizeSpotPrice(spotPrice string, maxPrice float64, minPrice float64) string {
+	log.Debug(fmt.Sprintf("Normalizing spot price to cost score. Spot price: %v, Min Price: %v, Max Price: %v", spotPrice, minPrice, maxPrice))
 	value, _ := strconv.ParseFloat(spotPrice, 32)
-	normalizedValue := 1 - ((value - minPrice) / (maxPrice - minPrice))
+	var normalizedValue float64
+	if maxPrice == minPrice {
+		normalizedValue = 1.0
+	}
+	normalizedValue = 1 - ((value - minPrice) / (maxPrice - minPrice))
 	return strconv.FormatFloat(normalizedValue, 'f', 6, 64)
 }

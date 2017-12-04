@@ -24,4 +24,10 @@ func init() {
 	viper.SetEnvPrefix("hollowtrees")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
+
+	viper.SetDefault("dev.aws.region", "eu-west-1")
+	viper.SetDefault("dev.monitor.bufferSize", "100")
+	viper.SetDefault("dev.monitor.processors", "10")
+	viper.SetDefault("dev.monitor.intervalInSeconds", "3")
+	viper.SetDefault("dev.monitor.reevaluateIntervalInSeconds", "60")
 }
