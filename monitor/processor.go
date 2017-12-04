@@ -31,14 +31,25 @@ func (p *PoolProcessor) Start() {
 			case request := <-p.Request:
 				log.WithFields(logrus.Fields{
 					"processor": p.ID,
+					"taskID":    request.VmPoolTask.TaskID,
 					"vmPool":    *request.VmPoolTask.VmPoolName,
+					"action":    *request.VmPoolTask.VmPoolAction,
 				}).Info("Received request")
 
-				p.VmPoolManager.UpdateVmPool(request.VmPoolTask)
-				log.WithFields(logrus.Fields{
-					"processor": p.ID,
-					"vmPool":    *request.VmPoolTask.VmPoolName,
-				}).Info("Updated VM pool done")
+				if err := p.VmPoolManager.UpdateVmPool(request.VmPoolTask); err != nil {
+					log.WithFields(logrus.Fields{
+						"processor": p.ID,
+						"taskID":    request.VmPoolTask.TaskID,
+						"vmPool":    *request.VmPoolTask.VmPoolName,
+						"action":    *request.VmPoolTask.VmPoolAction,
+					}).Error("Failed to finish task on VM pool: ", err.Error())
+				} else {
+					log.WithFields(logrus.Fields{
+						"processor": p.ID,
+						"taskID":    request.VmPoolTask.TaskID,
+						"vmPool":    *request.VmPoolTask.VmPoolName,
+					}).Info("Task finished on VM pool successfully")
+				}
 				p.Results <- request
 
 			case <-p.QuitChan:

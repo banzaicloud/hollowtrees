@@ -3,6 +3,8 @@ package monitor
 import (
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type InProgressRequests struct {
@@ -40,21 +42,37 @@ func (c *Collector) Start() {
 		for {
 			select {
 			case result := <-c.Results:
-				log.Info("Received result:", *result.VmPoolTask.VmPoolName)
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *result.VmPoolTask.VmPoolName,
+					"taskId":           result.VmPoolTask.TaskID,
+					"action":           *result.VmPoolTask.VmPoolAction,
+				}).Info("Received task result")
 				c.InProgress.Lock()
 				c.InProgress.r[*result.VmPoolTask.VmPoolName] = false
 				c.InProgress.Unlock()
 
 			case <-ticker.C:
 				log.Info("ticker triggered:", time.Now())
-				for _, vmPool := range c.VmPoolManager.MonitorVmPools() {
+				vmPoolTasks, err := c.VmPoolManager.CheckVmPools()
+				if err != nil {
+					log.Error("Failed to check VM pools in this tick: ", err)
+				}
+				for _, vmPool := range vmPoolTasks {
 					c.InProgress.Lock()
 					if !c.InProgress.r[*vmPool.VmPoolName] {
 						c.InProgress.r[*vmPool.VmPoolName] = true
 						c.Requests <- VmPoolRequest{VmPoolTask: vmPool}
-						log.Info("Pushing VM pool to processor queue ", *vmPool)
+						log.WithFields(logrus.Fields{
+							"autoScalingGroup": *vmPool.VmPoolName,
+							"taskId":           vmPool.TaskID,
+							"action":           *vmPool.VmPoolAction,
+						}).Info("Pushing VM pool task to processor queue")
 					} else {
-						log.Info("A processor is already working on this VM pool ", *vmPool)
+						log.WithFields(logrus.Fields{
+							"autoScalingGroup": *vmPool.VmPoolName,
+							"taskId":           vmPool.TaskID,
+							"action":           *vmPool.VmPoolAction,
+						}).Info("A processor is already working on this VM pool")
 					}
 					c.InProgress.Unlock()
 				}
@@ -68,16 +86,27 @@ func (c *Collector) Start() {
 			select {
 			case <-reevaluatingTicker.C:
 				log.Info("ticker triggered:", time.Now())
-				vmPoolTasks := c.VmPoolManager.ReevaluateVmPools()
+				vmPoolTasks, err := c.VmPoolManager.ReevaluateVmPools()
+				if err != nil {
+					log.Error("Failed to reevaluate VM pools in this tick: ", err)
+				}
 				if vmPoolTasks != nil {
 					for _, vmPool := range vmPoolTasks {
 						c.InProgress.Lock()
 						if !c.InProgress.r[*vmPool.VmPoolName] {
 							c.InProgress.r[*vmPool.VmPoolName] = true
 							c.Requests <- VmPoolRequest{VmPoolTask: vmPool}
-							log.Info("Pushing VM pool to processor queue ", *vmPool)
+							log.WithFields(logrus.Fields{
+								"autoScalingGroup": *vmPool.VmPoolName,
+								"taskId":           vmPool.TaskID,
+								"action":           *vmPool.VmPoolAction,
+							}).Info("Pushing VM pool task to processor queue")
 						} else {
-							log.Info("A processor is already working on this VM pool, won't reevaluate it now. ", *vmPool)
+							log.WithFields(logrus.Fields{
+								"autoScalingGroup": *vmPool.VmPoolName,
+								"taskId":           vmPool.TaskID,
+								"action":           *vmPool.VmPoolAction,
+							}).Info("A processor is already working on this VM pool")
 						}
 						c.InProgress.Unlock()
 					}

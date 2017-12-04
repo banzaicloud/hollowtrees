@@ -1,6 +1,7 @@
 package types
 
 type VmPoolTask struct {
-	VmPoolName *string
+	TaskID       string
+	VmPoolName   *string
 	VmPoolAction *string
 }

@@ -27,9 +27,9 @@ func main() {
 	nrOfProcessors := viper.GetInt("dev.monitor.processors")
 	log.Info("Number of processors to handle tasks: ", nrOfProcessors)
 	monitorInterval := viper.GetDuration("dev.monitor.intervalInSeconds")
-	log.Info("Monitor interval: ", monitorInterval)
+	log.Info("Monitor interval in seconds: ", monitorInterval)
 	reevaluateInterval := viper.GetDuration("dev.monitor.reevaluateIntervalInSeconds")
-	log.Info("Reevaluation interval: ", reevaluateInterval)
+	log.Info("Reevaluation interval in seconds: ", reevaluateInterval)
 
 	monitor.Start(region, bufferSize, nrOfProcessors, monitorInterval*time.Second, reevaluateInterval*time.Second)
 	log.Info("Started VM pool monitor")

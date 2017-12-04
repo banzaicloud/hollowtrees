@@ -12,6 +12,7 @@ import (
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/monitor/types"
 	"github.com/banzaicloud/hollowtrees/recommender"
+	"github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,7 +39,7 @@ func New(region string) (*AutoScalingGroupManager, error) {
 		Region: aws.String(region),
 	})
 	if err != nil {
-		log.Info("Error creating session ", err)
+		log.Info("Error creating session: ", err)
 		return nil, err
 	}
 	return &AutoScalingGroupManager{
@@ -46,16 +47,16 @@ func New(region string) (*AutoScalingGroupManager, error) {
 	}, nil
 }
 
-func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
+func (asgm *AutoScalingGroupManager) CheckVmPools() ([]*types.VmPoolTask, error) {
 	var vmPoolTasks []*types.VmPoolTask
 	asgSvc := autoscaling.New(asgm.session, aws.NewConfig())
 
 	result, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{})
 	if err != nil {
-		log.Error("something happened while polling ASGs" + err.Error())
-		//TODO: error handling
+		log.Error("An error happened while describing AutoScaling Groups: " + err.Error())
+		return nil, err
 	}
-	log.Info("number of ASGs found:", len(result.AutoScalingGroups))
+	log.Info("Number of AutoScaling Groups found:", len(result.AutoScalingGroups))
 
 	for _, asg := range result.AutoScalingGroups {
 
@@ -67,8 +68,11 @@ func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
 
 		// ASG is initializing if the desired cap is not zero but the nr of instances is 0 or all of them are pending
 		if *asg.DesiredCapacity != 0 && (len(asg.Instances) == 0 || nrOfPending == len(asg.Instances)) {
-			log.Info("ASG is initializing")
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *asg.AutoScalingGroupName,
+			}).Info("AutoScaling Group is initializing, creating task")
 			vmPoolTasks = append(vmPoolTasks, &types.VmPoolTask{
+				TaskID:       uuid.NewV4().String(),
 				VmPoolName:   asg.AutoScalingGroupName,
 				VmPoolAction: aws.String("initializing"),
 			})
@@ -77,8 +81,11 @@ func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
 
 		// ASG is upscaling if desired cap is not zero and nr of running+pending = desired cap
 		if *asg.DesiredCapacity != 0 && nrOfPending != 0 && nrOfTerminating == 0 {
-			log.Info("ASG is upscaling")
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *asg.AutoScalingGroupName,
+			}).Info("AutoScaling Group is upscaling, creating task")
 			vmPoolTasks = append(vmPoolTasks, &types.VmPoolTask{
+				TaskID:       uuid.NewV4().String(),
 				VmPoolName:   asg.AutoScalingGroupName,
 				VmPoolAction: aws.String("upscaling"),
 			})
@@ -87,8 +94,11 @@ func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
 
 		// ASG is downscaling (or instances are terminated) if some instances are terminating
 		if nrOfTerminating != 0 && nrOfPending == 0 {
-			log.Info("ASG is downscaling")
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *asg.AutoScalingGroupName,
+			}).Info("AutoScaling Group is downscaling, creating task")
 			vmPoolTasks = append(vmPoolTasks, &types.VmPoolTask{
+				TaskID:       uuid.NewV4().String(),
 				VmPoolName:   asg.AutoScalingGroupName,
 				VmPoolAction: aws.String("downscaling"),
 			})
@@ -96,10 +106,17 @@ func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
 		}
 	}
 
-	return vmPoolTasks
+	for _, vmPoolTask := range vmPoolTasks {
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+			"action":           *vmPoolTask.VmPoolAction,
+		}).Info("Created task")
+	}
+	return vmPoolTasks, nil
 }
 
-func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
+func (asgm *AutoScalingGroupManager) ReevaluateVmPools() ([]*types.VmPoolTask, error) {
 	var vmPoolTasks []*types.VmPoolTask
 
 	asgSvc := autoscaling.New(asgm.session, aws.NewConfig())
@@ -107,10 +124,10 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 
 	result, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{})
 	if err != nil {
-		log.Error("something happened while polling ASGs" + err.Error())
-		//TODO: error handling
+		log.Error("An error happened while describing AutoScaling Groups: " + err.Error())
+		return nil, err
 	}
-	log.Info("number of ASGs found:", len(result.AutoScalingGroups))
+	log.Info("number of AutoScaling Groups found:", len(result.AutoScalingGroups))
 
 	var managedASGNames []string
 
@@ -134,19 +151,21 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 				}
 			}
 
-			log.Info("there are no operations in progress, checking current state")
 			// TODO: cache this state
-			state, err := getCurrentInstanceTypeState(ec2Svc, instanceIds)
+			state, err := getCurrentInstanceTypeState(ec2Svc, *asg.AutoScalingGroupName, instanceIds)
 			if err != nil {
-				//TODO error handling
-				log.Info(err.Error())
-				return nil
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *asg.AutoScalingGroupName,
+				}).Error("Couldn't get the current state of the AutoScaling group", err.Error())
+				return nil, err
 			}
 
 			baseInstanceType, err := findBaseInstanceType(asgSvc, *asg.AutoScalingGroupName, *asg.LaunchConfigurationName)
 			if err != nil {
-				log.Info("couldn't find base instance type")
-				//TODO error handling
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *asg.AutoScalingGroupName,
+				}).Error("Couldn't find base instance type for the AutoScaling Group")
+				return nil, err
 			}
 
 			// if we have an instance that is not recommended in the AZ where it is placed then signal
@@ -154,8 +173,10 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 			// TODO: cache the recommendation as well
 			recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, nil, baseInstanceType)
 			if err != nil {
-				log.Info("couldn't get recommendations")
-				//TODO error handling
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *asg.AutoScalingGroupName,
+				}).Error("Couldn't get instance type recommendations for AutoScaling Group")
+				return nil, err
 			}
 
 			// If there is at least one spot instance that's not recommended then create a rebalancing action
@@ -163,14 +184,19 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 				recommendationContains := false
 				for _, recommendation := range recommendations[stateInfo.az] {
 					if stateInfo.spotBidPrice != "" && recommendation.InstanceTypeName == stateInfo.instType {
-						log.Info("recommendation contains: ", stateInfo.instType, " for AZ: ", stateInfo.az)
+						log.WithFields(logrus.Fields{
+							"autoScalingGroup": *asg.AutoScalingGroupName,
+						}).Info("recommendation contains: ", stateInfo.instType, " for AZ: ", stateInfo.az)
 						recommendationContains = true
 						break
 					}
 				}
 				if !recommendationContains {
-					log.Info("instanceType ", stateInfo, " is not among recommendations, sending rebalancing request")
+					log.WithFields(logrus.Fields{
+						"autoScalingGroup": *asg.AutoScalingGroupName,
+					}).Info("instanceType ", stateInfo, " is not among recommendations, creating rebalancing task")
 					vmPoolTasks = append(vmPoolTasks, &types.VmPoolTask{
+						TaskID:       uuid.NewV4().String(),
 						VmPoolName:   asg.AutoScalingGroupName,
 						VmPoolAction: aws.String("rebalancing"),
 					})
@@ -184,14 +210,24 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 
 	cleanupLCs(asgSvc, managedASGNames)
 
-	return vmPoolTasks
+	for _, vmPoolTask := range vmPoolTasks {
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+			"action":           *vmPoolTask.VmPoolAction,
+		}).Info("Created task")
+	}
+
+	return vmPoolTasks, nil
 }
 
 func isHollowtreesManaged(asg *autoscaling.Group) bool {
 	for _, tag := range asg.Tags {
 		if *tag.Key == "Hollowtrees" && *tag.Value == "true" {
 			return true
-			log.Info("Found a Hollowtrees managed AutoScaling Group: ", asg.AutoScalingGroupName)
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *asg.AutoScalingGroupName,
+			}).Info("Found a Hollowtrees managed AutoScaling Group: ", asg.AutoScalingGroupName)
 		}
 	}
 	return false
@@ -210,13 +246,13 @@ func getPendingAndTerminating(asg *autoscaling.Group) (int, int) {
 		}
 
 		log.WithFields(logrus.Fields{
-			"asg": *asg.AutoScalingGroupName,
+			"autoScalingGroup": *asg.AutoScalingGroupName,
 		}).Info("desired/current/pending:", *asg.DesiredCapacity, len(asg.Instances), nrOfPending)
 	}
 	return nrOfPending, nrOfTerminating
 }
 
-func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (InstanceTypes, error) {
+func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, asgName string, instanceIds []*string) (InstanceTypes, error) {
 	if len(instanceIds) < 1 {
 		return nil, errors.New("number of instance ids cannot be less than 1")
 	}
@@ -224,7 +260,9 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 		InstanceIds: instanceIds,
 	})
 	if err != nil {
-		log.Error("failed to describe instances: ", err.Error())
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": asgName,
+		}).Error("Failed to describe instances in AutoScaling Group: ", err.Error())
 		return nil, err
 	}
 
@@ -250,7 +288,9 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 			SpotInstanceRequestIds: spotRequests,
 		})
 		if err != nil {
-			log.Error("failed to describe spot requests ")
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": asgName,
+			}).Error("Failed to describe spot requests: ", err.Error())
 			return nil, err
 		}
 
@@ -263,7 +303,9 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 			state[it] = append(state[it], spotRequest.InstanceId)
 		}
 	}
-	log.Info("current state of instanceTypes in ASG: ", state)
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": asgName,
+	}).Info("current state of instanceTypes in ASG: ", state)
 	return state, err
 }
 
@@ -273,23 +315,33 @@ func findBaseInstanceType(asgSvc *autoscaling.AutoScaling, asgName string, lcNam
 		LaunchConfigurationNames: []*string{&originalLCName},
 	})
 	if err != nil {
-		log.Error("something happened during describing launch configs" + err.Error())
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": asgName,
+		}).Error("Failed to describe launch configurations: ", err.Error())
 		return "", err
 	}
-	log.Info("Described original LaunchConfigs, length of result is: ", len(originalLaunchConfigs.LaunchConfigurations))
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": asgName,
+	}).Info("Described original LaunchConfigs, length of result is: ", len(originalLaunchConfigs.LaunchConfigurations))
 
 	if len(originalLaunchConfigs.LaunchConfigurations) > 0 {
-		log.Info("Base instance type is: ", *originalLaunchConfigs.LaunchConfigurations[0].InstanceType)
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": asgName,
+		}).Info("Base instance type is: ", *originalLaunchConfigs.LaunchConfigurations[0].InstanceType)
 		return *originalLaunchConfigs.LaunchConfigurations[0].InstanceType, nil
 	} else {
 		launchConfigs, err := asgSvc.DescribeLaunchConfigurations(&autoscaling.DescribeLaunchConfigurationsInput{
 			LaunchConfigurationNames: []*string{&lcName},
 		})
 		if err != nil {
-			log.Error("something happened during describing launch configs" + err.Error())
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": asgName,
+			}).Error("something happened during describing launch configs" + err.Error())
 			return "", err
 		}
-		log.Info("Base instance type is: ", *launchConfigs.LaunchConfigurations[0].InstanceType)
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": asgName,
+		}).Info("Base instance type is: ", *launchConfigs.LaunchConfigurations[0].InstanceType)
 		return *launchConfigs.LaunchConfigurations[0].InstanceType, nil
 	}
 }
@@ -297,8 +349,7 @@ func findBaseInstanceType(asgSvc *autoscaling.AutoScaling, asgName string, lcNam
 func cleanupLCs(asgSvc *autoscaling.AutoScaling, managedASGNames []string) {
 	lcResult, err := asgSvc.DescribeLaunchConfigurations(&autoscaling.DescribeLaunchConfigurationsInput{})
 	if err != nil {
-		log.Error("something happened while polling LCs" + err.Error())
-		//TODO: error handling
+		log.Error("Couldn't describe Launch Configurations, cleanup won't continue. " + err.Error())
 	}
 	log.Info("number of LCs found:", len(lcResult.LaunchConfigurations))
 	for _, lc := range lcResult.LaunchConfigurations {
@@ -323,24 +374,36 @@ func cleanupLCs(asgSvc *autoscaling.AutoScaling, managedASGNames []string) {
 					LaunchConfigurationName: lc.LaunchConfigurationName,
 				})
 				if err != nil {
-					log.Error("couldn't clean up LC: " + err.Error())
-					//TODO: error handling
+					log.WithFields(logrus.Fields{
+						"launchConfiguration": *lc.LaunchConfigurationName,
+					}).Error("couldn't clean up Launch Configuration: " + err.Error())
 				}
 			}
 		}
 	}
 }
 
-func (asgm *AutoScalingGroupManager) UpdateVmPool(vmPoolTask *types.VmPoolTask) {
+func (asgm *AutoScalingGroupManager) UpdateVmPool(vmPoolTask *types.VmPoolTask) error {
 	switch *vmPoolTask.VmPoolAction {
 	case "initializing":
-		initializeASG(asgm, vmPoolTask.VmPoolName)
+		if err := initializeASG(asgm, vmPoolTask); err != nil {
+			return err
+		}
 	case "upscaling":
-		upscaleASG(asgm, vmPoolTask.VmPoolName)
+		if err := upscaleASG(asgm, vmPoolTask); err != nil {
+			return err
+		}
 	case "downscaling":
-		downscaleASG(asgm, vmPoolTask.VmPoolName)
+		if err := downscaleASG(asgm, vmPoolTask); err != nil {
+			return err
+		}
 	case "rebalancing":
-		rebalanceASG(asgm, vmPoolTask.VmPoolName)
+		if err := rebalanceASG(asgm, vmPoolTask); err != nil {
+			return err
+		}
 	}
-	updateLaunchConfig(asgm, vmPoolTask.VmPoolName)
+	if err := updateLaunchConfig(asgm, vmPoolTask); err != nil {
+		return err
+	}
+	return nil
 }

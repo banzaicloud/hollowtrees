@@ -10,3 +10,7 @@
 [[constraint]]
   name = "github.com/aws/aws-sdk-go"
   version = "v1.12.30"
+
+[[constraint]]
+  name = "github.com/satori/go.uuid"
+  version = "v1.1.0"

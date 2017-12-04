@@ -8,19 +8,27 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/banzaicloud/hollowtrees/monitor/types"
 	"github.com/banzaicloud/hollowtrees/recommender"
+	"github.com/sirupsen/logrus"
 )
 
-func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
-	log.Info("ASG will be rebalanced: ", vmPoolName)
+func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolTask *types.VmPoolTask) error {
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("ASG will be rebalanced: ", *vmPoolTask.VmPoolName)
 	ec2Svc := ec2.New(asgm.session, aws.NewConfig())
 	asgSvc := autoscaling.New(asgm.session, aws.NewConfig())
 	describeResult, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{
-		AutoScalingGroupNames: []*string{vmPoolName},
+		AutoScalingGroupNames: []*string{vmPoolTask.VmPoolName},
 	})
 	if err != nil {
-		log.Error("something happened while polling ASGs" + err.Error())
-		//TODO: error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("Couldn't describe AutoScaling Groups: " + err.Error())
+		return err
 	}
 	group := describeResult.AutoScalingGroups[0]
 
@@ -31,11 +39,13 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		}
 	}
 
-	state, err := getCurrentInstanceTypeState(ec2Svc, instanceIds)
+	state, err := getCurrentInstanceTypeState(ec2Svc, *group.AutoScalingGroupName, instanceIds)
 	if err != nil {
-		//TODO error handling
-		log.Info(err.Error())
-		return
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error(err.Error())
+		return err
 	}
 
 	subnetIds := strings.Split(*group.VPCZoneIdentifier, ",")
@@ -43,8 +53,11 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		SubnetIds: aws.StringSlice(subnetIds),
 	})
 	if err != nil {
-		log.Error("couldn't describe subnets" + err.Error())
-		//TODO: error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("couldn't describe subnets" + err.Error())
+		return err
 	}
 
 	subnetsPerAz := make(map[string][]string)
@@ -59,13 +72,19 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 
 	baseInstanceType, err := findBaseInstanceType(asgSvc, *group.AutoScalingGroupName, *group.LaunchConfigurationName)
 	if err != nil {
-		log.Info("couldn't find base instance type")
-		//TODO error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("couldn't find base instance type")
+		return err
 	}
 	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, azList, baseInstanceType)
 	if err != nil {
-		log.Info("couldn't get recommendations")
-		//TODO error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("couldn't get recommendations")
+		return err
 	}
 
 	for stateInfo, instanceIdsOfType := range state {
@@ -77,14 +96,20 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 			}
 		}
 		if !recommendationContains {
-			log.Info("this instance type will be changed to a different one because it is not among the recommended options:", stateInfo)
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Info("this instance type will be changed to a different one because it is not among the recommended options:", stateInfo)
 
 			launchConfigs, err := asgSvc.DescribeLaunchConfigurations(&autoscaling.DescribeLaunchConfigurationsInput{
 				LaunchConfigurationNames: []*string{group.LaunchConfigurationName},
 			})
 			if err != nil {
-				log.Error("something happened during describing launch configs" + err.Error())
-				//TODO: error handling
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Error("something happened during describing launch configs" + err.Error())
+				return err
 			}
 
 			// TODO: we should check the current diversification of the ASG and set the selected instance types accordingly
@@ -96,8 +121,7 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 			countsPerAz := make(map[string]int64)
 			countsPerAz[stateInfo.az] = int64(len(instanceIdsOfType))
 
-			// start new, detach, wait, attach
-			instanceIdsToAttach, err := requestAndWaitSpotInstances(ec2Svc, countsPerAz, subnetsPerAz, selectedInstanceTypes, *launchConfigs.LaunchConfigurations[0])
+			instanceIdsToAttach, err := requestAndWaitSpotInstances(ec2Svc, vmPoolTask, countsPerAz, subnetsPerAz, selectedInstanceTypes, *launchConfigs.LaunchConfigurations[0])
 
 			// change ASG min size so we can detach instances
 			_, err = asgSvc.UpdateAutoScalingGroup(&autoscaling.UpdateAutoScalingGroupInput{
@@ -105,7 +129,11 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 				MinSize:              aws.Int64(int64(len(instanceIds) - len(instanceIdsOfType))),
 			})
 			if err != nil {
-				log.Info("failed to update ASG: ", err.Error())
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Error("failed to update ASG: ", err.Error())
+				return err
 			}
 
 			// TODO: we shouldn't detach all instances at once, we can stick to the minsize of the group and only detach
@@ -116,14 +144,22 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 				InstanceIds:                    instanceIdsOfType,
 			})
 			if err != nil {
-				log.Info("failed to detach instances: ", err.Error())
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Error("failed to detach instances: ", err.Error())
+				return err
 			}
 
 			_, err = ec2Svc.TerminateInstances(&ec2.TerminateInstancesInput{
 				InstanceIds: instanceIdsOfType,
 			})
 			if err != nil {
-				log.Info("failed to terminate instances: ", err.Error())
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Error("failed to terminate instances: ", err.Error())
+				return err
 			}
 
 			_, err = asgSvc.AttachInstances(&autoscaling.AttachInstancesInput{
@@ -131,7 +167,11 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 				AutoScalingGroupName: group.AutoScalingGroupName,
 			})
 			if err != nil {
-				log.Info("failed to attach instances: ", err.Error())
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Error("failed to attach instances: ", err.Error())
+				return err
 			}
 
 			// change back ASG min size to original
@@ -140,7 +180,11 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 				MinSize:              group.MinSize,
 			})
 			if err != nil {
-				log.Info("couldn't update min size", err.Error())
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Error("couldn't update min size", err.Error())
+				return err
 			}
 
 			// wait until there are no pending instances in ASG
@@ -151,12 +195,18 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 					AutoScalingGroupNames: []*string{group.AutoScalingGroupName},
 				})
 				if err != nil {
-					log.Info("couldn't describe ASG while checking it at the end")
-					//TODO: error handling
+					log.WithFields(logrus.Fields{
+						"autoScalingGroup": *vmPoolTask.VmPoolName,
+						"taskID":           vmPoolTask.TaskID,
+					}).Error("couldn't describe ASG")
+					return err
 				}
 				for _, instance := range r.AutoScalingGroups[0].Instances {
 					if *instance.LifecycleState == "Pending" {
-						log.Info("found a pending instance: ", *instance.InstanceId)
+						log.WithFields(logrus.Fields{
+							"autoScalingGroup": *vmPoolTask.VmPoolName,
+							"taskID":           vmPoolTask.TaskID,
+						}).Info("found a pending instance: ", *instance.InstanceId)
 						nrOfPending++
 					}
 				}
@@ -164,4 +214,5 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 			}
 		}
 	}
+	return nil
 }

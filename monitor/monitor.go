@@ -20,9 +20,9 @@ type VmPoolRequest struct {
 }
 
 type VmPoolManager interface {
-	MonitorVmPools() []*types.VmPoolTask
-	ReevaluateVmPools() []*types.VmPoolTask
-	UpdateVmPool(vmPoolTask *types.VmPoolTask)
+	CheckVmPools() ([]*types.VmPoolTask, error)
+	ReevaluateVmPools() ([]*types.VmPoolTask, error)
+	UpdateVmPool(vmPoolTask *types.VmPoolTask) error
 }
 
 func Start(region string, bufferSize int, nrOfProcessors int, monitorInterval time.Duration, reevaluateInterval time.Duration) {

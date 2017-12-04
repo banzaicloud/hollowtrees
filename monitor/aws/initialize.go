@@ -8,56 +8,80 @@ import (
 
 	"sort"
 
+	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/banzaicloud/hollowtrees/monitor/types"
 	"github.com/banzaicloud/hollowtrees/recommender"
+	"github.com/sirupsen/logrus"
 )
 
-func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
+func initializeASG(asgm *AutoScalingGroupManager, vmPoolTask *types.VmPoolTask) error {
 	ec2Svc := ec2.New(asgm.session, aws.NewConfig())
 	asgSvc := autoscaling.New(asgm.session, aws.NewConfig())
 	describeResult, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{
-		AutoScalingGroupNames: []*string{vmPoolName},
+		AutoScalingGroupNames: []*string{vmPoolTask.VmPoolName},
 	})
 	if err != nil {
-		log.Error("something happened while polling ASGs" + err.Error())
-		//TODO: error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("something happened while polling ASGs" + err.Error())
+		return err
 	}
 	group := describeResult.AutoScalingGroups[0]
 	originalDesiredCap := group.DesiredCapacity
 	originalMinSize := group.MinSize
-	log.Info("updating to 0 desired")
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("updating ASG's desired capacity to 0")
 	// setting desired capacity to 0
-	result, err := asgSvc.UpdateAutoScalingGroup(&autoscaling.UpdateAutoScalingGroupInput{
+	_, err = asgSvc.UpdateAutoScalingGroup(&autoscaling.UpdateAutoScalingGroupInput{
 		AutoScalingGroupName: group.AutoScalingGroupName,
 		DesiredCapacity:      aws.Int64(0),
 		MinSize:              aws.Int64(0),
 	})
 	if err != nil {
-		log.Info("error happened during updating to 0 desired", err.Error())
-		//TODO: error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("error happened during updating to 0 desired", err.Error())
+		return err
 	}
-	log.Info(result)
-	log.Info("updated to 0 desired")
-	// get launchconfig instancetype
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("updated ASG's desired capacity to 0")
+
 	launchConfigs, err := asgSvc.DescribeLaunchConfigurations(&autoscaling.DescribeLaunchConfigurationsInput{
 		LaunchConfigurationNames: []*string{group.LaunchConfigurationName},
 	})
 	if err != nil {
-		log.Error("something happened during describing launch configs" + err.Error())
-		//TODO: error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("Couldn't describe launch configs" + err.Error())
+		return err
 	}
 	launchConfig := *launchConfigs.LaunchConfigurations[0]
-	log.Info("launch config instance type is", *launchConfig.InstanceType)
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("launch config instance type is", *launchConfig.InstanceType)
 
 	subnetIds := strings.Split(*group.VPCZoneIdentifier, ",")
 	subnets, err := ec2Svc.DescribeSubnets(&ec2.DescribeSubnetsInput{
 		SubnetIds: aws.StringSlice(subnetIds),
 	})
 	if err != nil {
-		log.Error("couldn't describe subnets" + err.Error())
-		//TODO: error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("couldn't describe subnets" + err.Error())
+		return err
 	}
 
 	subnetsPerAz := make(map[string][]string)
@@ -72,10 +96,16 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 
 	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, azList, *launchConfig.InstanceType)
 	if err != nil {
-		log.Error("couldn't recommend spot instance types" + err.Error())
-		//TODO: error handling
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("couldn't recommend spot instance types" + err.Error())
+		return err
 	}
-	log.Info("recommendations in selected AZs are", recommendations)
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("recommendations in selected AZs are", recommendations)
 
 	i := 0
 	selectedInstanceTypes := make(map[string][]recommender.InstanceTypeInfo)
@@ -91,12 +121,18 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		i++
 	}
 
-	instanceIds, err := requestAndWaitSpotInstances(ec2Svc, countsPerAz, subnetsPerAz, selectedInstanceTypes, launchConfig)
+	instanceIds, err := requestAndWaitSpotInstances(ec2Svc, vmPoolTask, countsPerAz, subnetsPerAz, selectedInstanceTypes, launchConfig)
 	if err != nil {
-		//TODO: error handling
-		log.Error("couldn't request spot instances" + err.Error())
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("couldn't request spot instances" + err.Error())
+		return err
 	}
-	log.Info("all instances are running")
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("all instances are running")
 
 	// attach new instances to ASG
 	_, err = asgSvc.AttachInstances(&autoscaling.AttachInstancesInput{
@@ -104,7 +140,11 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		AutoScalingGroupName: group.AutoScalingGroupName,
 	})
 	if err != nil {
-		log.Info("failed to attach instances: ", err.Error())
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("failed to attach instances: ", err.Error())
+		return err
 	}
 
 	// change back ASG min size to original
@@ -113,9 +153,13 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		MinSize:              originalMinSize,
 	})
 	if err != nil {
-		log.Info("couldn't update min size", err.Error())
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Error("couldn't update min size", err.Error())
+		return err
 	}
-	//}
+
 	// wait until there are no pending instances in ASG
 	nrOfPending := *originalDesiredCap
 	for nrOfPending != 0 {
@@ -124,16 +168,24 @@ func initializeASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 			AutoScalingGroupNames: []*string{group.AutoScalingGroupName},
 		})
 		if err != nil {
-			log.Info("couldn't describe ASG while checking it at the end")
+			// TODO: timeout
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Error("couldn't describe ASG while waiting for pending instances")
 		}
 		for _, instance := range r.AutoScalingGroups[0].Instances {
 			if *instance.LifecycleState == "Pending" {
-				log.Info("found a pending instance: ", *instance.InstanceId)
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Info("found a pending instance: ", *instance.InstanceId)
 				nrOfPending++
 			}
 		}
 		time.Sleep(1 * time.Second)
 	}
+	return nil
 }
 
 type ByCostScore []recommender.InstanceTypeInfo
@@ -159,53 +211,98 @@ func selectInstanceTypesByCost(recommendations []recommender.InstanceTypeInfo, n
 	}
 }
 
-func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, countsPerAZ map[string]int64, subnetsPerAZ map[string][]string, selectedInstanceTypes map[string][]recommender.InstanceTypeInfo, launchConfig autoscaling.LaunchConfiguration) ([]*string, error) {
+func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, vmPoolTask *types.VmPoolTask, countsPerAZ map[string]int64, subnetsPerAZ map[string][]string, selectedInstanceTypes map[string][]recommender.InstanceTypeInfo, launchConfig autoscaling.LaunchConfiguration) ([]*string, error) {
 	var instanceIds []*string
 	var spotRequestIds []*string
 
-	log.Info("counts per az: ", countsPerAZ)
-	log.Info("subnets per az: ", subnetsPerAZ)
-	log.Info("selected instance types: ", selectedInstanceTypes)
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("counts per az: ", countsPerAZ)
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("subnets per az: ", subnetsPerAZ)
+	log.WithFields(logrus.Fields{
+		"autoScalingGroup": *vmPoolTask.VmPoolName,
+		"taskID":           vmPoolTask.TaskID,
+	}).Info("selected instance types: ", selectedInstanceTypes)
 
 	for az, selectedInstanceTypesInAZ := range selectedInstanceTypes {
-		log.Info("az process started: ", az)
-		log.Info("selected instance types here are: ", selectedInstanceTypesInAZ)
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Info("az process started: ", az)
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Info("selected instance types here are: ", selectedInstanceTypesInAZ)
 		totalCountInAZ := countsPerAZ[az]
 		countPerType := totalCountInAZ / int64(len(selectedInstanceTypesInAZ))
 		remainderCount := totalCountInAZ % int64(len(selectedInstanceTypesInAZ))
 
-		log.Info("total count in az: ", totalCountInAZ)
-		log.Info("count per type: ", countPerType)
-		log.Info("remainder: ", remainderCount)
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Info("total count in az: ", totalCountInAZ)
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Info("count per type: ", countPerType)
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Info("remainder: ", remainderCount)
 
 		for i, instanceType := range selectedInstanceTypesInAZ {
-			log.Info("selected instance type: ", i, instanceType)
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Info("selected instance type: ", i, instanceType)
 			countForType := countPerType
 			if i == 0 {
 				countForType = countForType + remainderCount
 			}
 
-			log.Info("count for type: ", countForType)
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Info("count for type: ", countForType)
 
 			subnetsInAZ := subnetsPerAZ[az]
 
-			log.Info("subnets in AZ: ", subnetsInAZ)
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Info("subnets in AZ: ", subnetsInAZ)
 
 			itCountPerSubnet := countForType / int64(len(subnetsInAZ))
 			remainderItCount := countForType % int64(len(subnetsInAZ))
 
-			log.Info("instance type count per subnet: ", itCountPerSubnet)
-			log.Info("remainder: ", remainderItCount)
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Info("instance type count per subnet: ", itCountPerSubnet)
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Info("remainder: ", remainderItCount)
 
 			for i, subnet := range subnetsInAZ {
-				log.Info("processing subnet: ", subnet)
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Info("processing subnet: ", subnet)
 
 				itCountForSubnet := itCountPerSubnet
 				if i == 0 {
 					itCountForSubnet = itCountForSubnet + remainderItCount
 				}
 
-				log.Info("it count for subnet: ", itCountForSubnet)
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Info("it count for subnet: ", itCountForSubnet)
 
 				if itCountForSubnet != 0 {
 					requestSpotResult, err := ec2Svc.RequestSpotInstances(&ec2.RequestSpotInstancesInput{
@@ -231,8 +328,11 @@ func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, countsPerAZ map[string]int64, 
 						},
 					})
 					if err != nil {
-						log.Info("couldn't request spot instances", err.Error())
-						//return nil, err
+						log.WithFields(logrus.Fields{
+							"autoScalingGroup": *vmPoolTask.VmPoolName,
+							"taskID":           vmPoolTask.TaskID,
+						}).Info("couldn't request spot instances", err.Error())
+						return nil, err
 					}
 					for _, spotReq := range requestSpotResult.SpotInstanceRequests {
 						spotRequestIds = append(spotRequestIds, spotReq.SpotInstanceRequestId)
@@ -255,16 +355,26 @@ func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, countsPerAZ map[string]int64, 
 			SpotInstanceRequestIds: spotRequestIds,
 		})
 		if err != nil {
-			log.Info("failed to describe spot requests")
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Error("failed to describe spot requests")
+			return nil, err
 		}
 		for _, spotReq := range spotRequests.SpotInstanceRequests {
 			if spotReq.InstanceId != nil {
-				log.Info("instanceId of spot request is:", *spotReq.InstanceId)
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Info("instanceId of spot request is:", *spotReq.InstanceId)
 				if *spotReq.InstanceId != "" {
 					instanceIds = append(instanceIds, spotReq.InstanceId)
 				}
 			} else {
-				log.Info("instance id in request is null")
+				log.WithFields(logrus.Fields{
+					"autoScalingGroup": *vmPoolTask.VmPoolName,
+					"taskID":           vmPoolTask.TaskID,
+				}).Info("instance id in request is null")
 			}
 		}
 		time.Sleep(1 * time.Second)
@@ -274,21 +384,34 @@ func requestAndWaitSpotInstances(ec2Svc *ec2.EC2, countsPerAZ map[string]int64, 
 	var currentlyRunning int64 = 0
 	for totalCount != currentlyRunning {
 		currentlyRunning = 0
-		log.Info("describing instances:")
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Info("Describing instances")
 		describeInstResult, err := ec2Svc.DescribeInstanceStatus(&ec2.DescribeInstanceStatusInput{
 			InstanceIds: instanceIds,
 		})
 		if err != nil {
-			log.Info("failed to describe instances ", err.Error())
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Error("failed to describe instances ", err.Error())
+			return nil, err
 		}
 		log.Info("nr of instances in describe result ", len(describeInstResult.InstanceStatuses))
 		for _, instanceStatus := range describeInstResult.InstanceStatuses {
-			log.Info(*instanceStatus.InstanceState.Name)
+			log.WithFields(logrus.Fields{
+				"autoScalingGroup": *vmPoolTask.VmPoolName,
+				"taskID":           vmPoolTask.TaskID,
+			}).Info(*instanceStatus.InstanceState.Name)
 			if *instanceStatus.InstanceState.Name == "running" {
 				currentlyRunning += 1
 			}
 		}
-		log.Info("currently running ", currentlyRunning)
+		log.WithFields(logrus.Fields{
+			"autoScalingGroup": *vmPoolTask.VmPoolName,
+			"taskID":           vmPoolTask.TaskID,
+		}).Info(fmt.Sprintf("currently running %v/%v", currentlyRunning, totalCount))
 		time.Sleep(1 * time.Second)
 	}
 	return instanceIds, nil
