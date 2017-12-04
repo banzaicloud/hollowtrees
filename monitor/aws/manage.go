@@ -142,10 +142,16 @@ func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 				return nil
 			}
 
+			baseInstanceType, err := findBaseInstanceType(asgSvc, *asg.AutoScalingGroupName, *asg.LaunchConfigurationName)
+			if err != nil {
+				log.Info("couldn't find base instance type")
+				//TODO error handling
+			}
+
 			// if we have an instance that is not recommended in the AZ where it is placed then signal
 
 			// TODO: cache the recommendation as well
-			recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, nil, "m4.xlarge")
+			recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, nil, baseInstanceType)
 			if err != nil {
 				log.Info("couldn't get recommendations")
 				//TODO error handling
@@ -258,6 +264,33 @@ func getCurrentInstanceTypeState(ec2Svc *ec2.EC2, instanceIds []*string) (Instan
 	}
 	log.Info("current state of instanceTypes in ASG: ", state)
 	return state, err
+}
+
+func findBaseInstanceType(asgSvc *autoscaling.AutoScaling, asgName string, lcName string) (string, error) {
+	originalLCName := asgName + "-ht-orig"
+	originalLaunchConfigs, err := asgSvc.DescribeLaunchConfigurations(&autoscaling.DescribeLaunchConfigurationsInput{
+		LaunchConfigurationNames: []*string{&originalLCName},
+	})
+	if err != nil {
+		log.Error("something happened during describing launch configs" + err.Error())
+		return "", err
+	}
+	log.Info("Described original LaunchConfigs, length of result is: ", len(originalLaunchConfigs.LaunchConfigurations))
+
+	if len(originalLaunchConfigs.LaunchConfigurations) > 0 {
+		log.Info("Base instance type is: ", *originalLaunchConfigs.LaunchConfigurations[0].InstanceType)
+		return *originalLaunchConfigs.LaunchConfigurations[0].InstanceType, nil
+	} else {
+		launchConfigs, err := asgSvc.DescribeLaunchConfigurations(&autoscaling.DescribeLaunchConfigurationsInput{
+			LaunchConfigurationNames: []*string{&lcName},
+		})
+		if err != nil {
+			log.Error("something happened during describing launch configs" + err.Error())
+			return "", err
+		}
+		log.Info("Base instance type is: ", *launchConfigs.LaunchConfigurations[0].InstanceType)
+		return *launchConfigs.LaunchConfigurations[0].InstanceType, nil
+	}
 }
 
 func cleanupLCs(asgSvc *autoscaling.AutoScaling, managedASGNames []string) {

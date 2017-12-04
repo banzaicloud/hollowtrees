@@ -57,7 +57,12 @@ func rebalanceASG(asgm *AutoScalingGroupManager, vmPoolName *string) {
 		azList = append(azList, k)
 	}
 
-	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, azList, "m4.xlarge")
+	baseInstanceType, err := findBaseInstanceType(asgSvc, *group.AutoScalingGroupName, *group.LaunchConfigurationName)
+	if err != nil {
+		log.Info("couldn't find base instance type")
+		//TODO error handling
+	}
+	recommendations, err := recommender.RecommendSpotInstanceTypes(*asgm.session.Config.Region, azList, baseInstanceType)
 	if err != nil {
 		log.Info("couldn't get recommendations")
 		//TODO error handling
