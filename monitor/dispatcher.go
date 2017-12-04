@@ -1,9 +1,5 @@
 package monitor
 
-import (
-	"github.com/banzaicloud/hollowtrees/conf"
-)
-
 type Dispatcher struct {
 	NrProcessors   int
 	ProcessorQueue chan chan VmPoolRequest
@@ -23,8 +19,6 @@ func NewDispatcher(p int, requests chan VmPoolRequest, results chan VmPoolReques
 }
 
 func (d *Dispatcher) Start() {
-	log = conf.Logger()
-
 	for i := 0; i < d.NrProcessors; i++ {
 		log.Info("Starting processor", i+1)
 		processor := NewPoolProcessor(i+1, d.ProcessorQueue, d.Results, d.VmPoolManager)

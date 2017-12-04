@@ -3,12 +3,17 @@ package monitor
 import (
 	"time"
 
+	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/monitor/aws"
 	"github.com/banzaicloud/hollowtrees/monitor/types"
 	"github.com/sirupsen/logrus"
 )
 
-var log *logrus.Logger
+var log *logrus.Entry
+
+func init() {
+	log = conf.Logger().WithField("package", "monitor")
+}
 
 type VmPoolRequest struct {
 	VmPoolTask *types.VmPoolTask

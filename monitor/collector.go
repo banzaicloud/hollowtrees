@@ -3,8 +3,6 @@ package monitor
 import (
 	"sync"
 	"time"
-
-	"github.com/banzaicloud/hollowtrees/conf"
 )
 
 type InProgressRequests struct {
@@ -35,7 +33,6 @@ func NewCollector(p time.Duration, rp time.Duration, requests chan VmPoolRequest
 }
 
 func (c *Collector) Start() {
-	log = conf.Logger()
 	ticker := time.NewTicker(c.PollPeriod)
 	reevaluatingTicker := time.NewTicker(c.ReevaluatingPollPeriod)
 

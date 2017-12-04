@@ -1,12 +1,12 @@
 package aws
 
 import (
-	"github.com/sirupsen/logrus"
-	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/banzaicloud/hollowtrees/engine"
+	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/banzaicloud/hollowtrees/conf"
+	"github.com/banzaicloud/hollowtrees/engine"
+	"github.com/sirupsen/logrus"
 )
 
 type AwsCloudEngine struct {
@@ -14,10 +14,13 @@ type AwsCloudEngine struct {
 	region  string
 }
 
-var log *logrus.Logger
+var log *logrus.Entry
+
+func init() {
+	log = conf.Logger().WithField("package", "engine/aws")
+}
 
 func New(region string) (engine.CloudEngine, error) {
-	log = conf.Logger()
 	session, err := session.NewSession()
 	if err != nil {
 		log.Info("Error creating session ", err)

@@ -6,14 +6,23 @@ import (
 
 	"strings"
 
+	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/engine"
 	"github.com/banzaicloud/hollowtrees/engine/aws"
 	"github.com/banzaicloud/hollowtrees/recommender"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 	"gopkg.in/go-playground/validator.v8"
 )
 
+var log *logrus.Entry
+
+func init() {
+	log = conf.Logger().WithField("package", "api")
+}
+
 func ConfigureRoutes(router *gin.Engine) {
+	log.Info("configuring routes")
 	v1 := router.Group("/api/v1/")
 	{
 		v1.GET("/recommender/:region", recommendSpotInstanceTypes)
@@ -22,6 +31,7 @@ func ConfigureRoutes(router *gin.Engine) {
 }
 
 func recommendSpotInstanceTypes(c *gin.Context) {
+	log.Info("recommend spot instance types")
 	region := c.Param("region")
 	baseInstanceType := c.DefaultQuery("baseInstanceType", "m4.xlarge")
 	azsQuery := c.DefaultQuery("availabilityZones", "")
@@ -40,6 +50,7 @@ func recommendSpotInstanceTypes(c *gin.Context) {
 }
 
 func createHollowGroup(c *gin.Context) {
+	log.Info("create VM pool")
 	hgRequest := new(engine.HollowGroupRequest)
 	if err := c.BindJSON(hgRequest); err != nil {
 		if ve, ok := err.(validator.ValidationErrors); !ok {

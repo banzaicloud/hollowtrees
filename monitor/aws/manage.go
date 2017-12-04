@@ -15,7 +15,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var log *logrus.Logger
+var log *logrus.Entry
+
+func init() {
+	log = conf.Logger().WithField("package", "monitor/aws")
+}
 
 type AutoScalingGroupManager struct {
 	session *session.Session
@@ -30,7 +34,6 @@ type InstanceType struct {
 type InstanceTypes map[InstanceType][]*string
 
 func New(region string) (*AutoScalingGroupManager, error) {
-	log = conf.Logger()
 	session, err := session.NewSession(&aws.Config{
 		Region: aws.String(region),
 	})
@@ -45,7 +48,6 @@ func New(region string) (*AutoScalingGroupManager, error) {
 
 func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
 	var vmPoolTasks []*types.VmPoolTask
-	log = conf.Logger()
 	asgSvc := autoscaling.New(asgm.session, aws.NewConfig())
 
 	result, err := asgSvc.DescribeAutoScalingGroups(&autoscaling.DescribeAutoScalingGroupsInput{})
@@ -99,7 +101,6 @@ func (asgm *AutoScalingGroupManager) MonitorVmPools() []*types.VmPoolTask {
 
 func (asgm *AutoScalingGroupManager) ReevaluateVmPools() []*types.VmPoolTask {
 	var vmPoolTasks []*types.VmPoolTask
-	log = conf.Logger()
 
 	asgSvc := autoscaling.New(asgm.session, aws.NewConfig())
 	ec2Svc := ec2.New(asgm.session, aws.NewConfig())

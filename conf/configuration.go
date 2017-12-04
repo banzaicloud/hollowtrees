@@ -2,12 +2,13 @@ package conf
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
 	"log"
 	"strings"
+
+	"github.com/spf13/viper"
 )
 
-func Init() {
+func init() {
 
 	viper.AddConfigPath("$HOME/conf")
 	viper.AddConfigPath("./")

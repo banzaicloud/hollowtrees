@@ -14,7 +14,7 @@ var log *logrus.Logger
 
 func main() {
 
-	conf.Init()
+	//conf.Init()
 
 	log = conf.Logger()
 	log.Info("Logger configured.")

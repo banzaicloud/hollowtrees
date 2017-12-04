@@ -2,7 +2,6 @@ package monitor
 
 import (
 	"github.com/sirupsen/logrus"
-	"github.com/banzaicloud/hollowtrees/conf"
 )
 
 type PoolProcessor struct {
@@ -25,7 +24,6 @@ func NewPoolProcessor(id int, processorQueue chan chan VmPoolRequest, results ch
 }
 
 func (p *PoolProcessor) Start() {
-	log = conf.Logger()
 	go func() {
 		for {
 			p.ProcessorQueue <- p.Request
