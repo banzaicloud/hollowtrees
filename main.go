@@ -24,14 +24,14 @@ func main() {
 	log.Info("Region to monitor: ", region)
 	bufferSize := viper.GetInt("dev.monitor.bufferSize")
 	log.Info("Buffer size for tasks: ", bufferSize)
-	nrOfProcessors := viper.GetInt("dev.monitor.processors")
-	log.Info("Number of processors to handle tasks: ", nrOfProcessors)
+	pluginAddress := viper.GetString("dev.plugin.address")
+	log.Info("Address of action plugin: ", pluginAddress)
 	monitorInterval := viper.GetDuration("dev.monitor.intervalInSeconds")
 	log.Info("Monitor interval in seconds: ", monitorInterval)
 	reevaluateInterval := viper.GetDuration("dev.monitor.reevaluateIntervalInSeconds")
 	log.Info("Reevaluation interval in seconds: ", reevaluateInterval)
 
-	monitor.Start(region, bufferSize, nrOfProcessors, monitorInterval*time.Second, reevaluateInterval*time.Second)
+	monitor.Start(region, bufferSize, pluginAddress, monitorInterval*time.Second, reevaluateInterval*time.Second)
 	log.Info("Started VM pool monitor")
 
 	router := gin.Default()

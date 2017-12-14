@@ -27,7 +27,7 @@ func init() {
 
 	viper.SetDefault("dev.aws.region", "eu-west-1")
 	viper.SetDefault("dev.monitor.bufferSize", "100")
-	viper.SetDefault("dev.monitor.processors", "10")
+	viper.SetDefault("dev.plugin.address", "localhost:8888")
 	viper.SetDefault("dev.monitor.intervalInSeconds", "3")
 	viper.SetDefault("dev.monitor.reevaluateIntervalInSeconds", "60")
 }
