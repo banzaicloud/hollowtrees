@@ -1,3 +1,167 @@
+Release v1.12.47 (2017-12-14)
+===
+
+### Service Client Updates
+* `service/apigateway`: Updates service API and documentation
+  * Adds support for Cognito Authorizer scopes at the API method level.
+* `service/email`: Updates service documentation
+  * Added information about the maximum number of transactions per second for the SendCustomVerificationEmail operation.
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+
+Release v1.12.46 (2017-12-12)
+===
+
+### Service Client Updates
+* `service/workmail`: Adds new service
+  * Today, Amazon WorkMail released an administrative SDK and enabled AWS CloudTrail integration. With the administrative SDK, you can natively integrate WorkMail with your existing services. The SDK enables programmatic user, resource, and group management through API calls. This means your existing IT tools and workflows can now automate WorkMail management, and third party applications can streamline WorkMail migrations and account actions.
+
+Release v1.12.45 (2017-12-11)
+===
+
+### Service Client Updates
+* `service/cognito-idp`: Updates service API and documentation
+* `aws/endpoints`: Updated Regions and Endpoints metadata.
+* `service/lex-models`: Updates service API and documentation
+* `service/sagemaker`: Updates service API
+  * CreateModel API Update:  The request parameter 'ExecutionRoleArn' has changed from optional to required.
+
+Release v1.12.44 (2017-12-08)
+===
+
+### Service Client Updates
+* `service/appstream`: Updates service API and documentation
+  * This API update is to support the feature that allows customers to automatically consume the latest Amazon AppStream 2.0 agent as and when published by AWS.
+* `service/ecs`: Updates service documentation
+  * Documentation updates for Windows containers.
+* `service/monitoring`: Updates service API and documentation
+  * With this launch, you can now create a CloudWatch alarm that alerts you when M out of N datapoints of a metric are breaching your predefined threshold, such as three out of five times in any given five minutes interval or two out of six times in a thirty minutes interval. When M out of N datapoints are not breaching your threshold in an interval, the alarm will be in OK state. Please note that the M datapoints out of N datapoints in an interval can be of any order and does not need to be consecutive. Consequently, you can now get alerted even when the spikes in your metrics are intermittent over an interval.
+
+Release v1.12.43 (2017-12-07)
+===
+
+### Service Client Updates
+* `service/email`: Updates service API, documentation, and paginators
+  * Customers can customize the emails that Amazon SES sends when verifying new identities. This feature is helpful for developers whose applications send email through Amazon SES on behalf of their customers.
+* `service/es`: Updates service API and documentation
+  * Added support for encryption of data at rest on Amazon Elasticsearch Service using AWS KMS
+
+### SDK Bugs
+* `models/apis` Fixes removes colliding sagemaker models folders ([#1686](https://github.com/aws/aws-sdk-go/pull/1686))
+  * Fixes Release v1.12.42's SageMaker vs sagemaker model folders.
+Release v1.12.42 (2017-12-06)
+===
+
+### Service Client Updates
+* `service/clouddirectory`: Updates service API and documentation
+  * Amazon Cloud Directory makes it easier for you to apply schema changes across your directories with in-place schema upgrades. Your directories now remain available while backward-compatible schema changes are being applied, such as the addition of new fields. You also can view the history of your schema changes in Cloud Directory by using both major and minor version identifiers, which can help you track and audit schema versions across directories.
+* `service/elasticbeanstalk`: Updates service documentation
+  * Documentation updates for AWS Elastic Beanstalk.
+* `service/sagemaker`: Adds new service
+  * Initial waiters for common SageMaker workflows.
+
+Release v1.12.41 (2017-12-05)
+===
+
+### Service Client Updates
+* `service/iot`: Updates service API and documentation
+  * Add error action API for RulesEngine.
+* `service/servicecatalog`: Updates service API and documentation
+  * ServiceCatalog has two distinct personas for its use, an "admin" persona (who creates sets of products with different versions and prescribes who has access to them) and an "end-user" persona (who can launch cloud resources based on the configuration data their admins have given them access to).  This API update will allow admin users to deactivate/activate product versions, end-user will only be able to access and launch active product versions.
+* `service/servicediscovery`: Adds new service
+  * Amazon Route 53 Auto Naming lets you configure public or private namespaces that your microservice applications run in. When instances of the service become available, you can call the Auto Naming API to register the instance, and Amazon Route 53 automatically creates up to five DNS records and an optional health check. Clients that submit DNS queries for the service receive an answer that contains up to eight healthy records.
+
+Release v1.12.40 (2017-12-04)
+===
+
+### Service Client Updates
+* `service/budgets`: Updates service API and documentation
+  * Add additional costTypes to support finer control for different charges included in a cost budget.
+* `service/ecs`: Updates service documentation
+  * Documentation updates for ecs
+
+Release v1.12.39 (2017-12-01)
+===
+
+### Service Client Updates
+* `service/SageMaker`: Updates service waiters
+
+Release v1.12.38 (2017-11-30)
+===
+
+### Service Client Updates
+* `service/AWSMoneypenny`: Adds new service
+* `service/Cloud9`: Adds new service
+* `service/Serverless Registry`: Adds new service
+* `service/apigateway`: Updates service API, documentation, and paginators
+  * Added support Private Integration and VPC Link features in API Gateway. This allows to create an API with the API Gateway private integration, thus providing clients access to HTTP/HTTPS resources in an Amazon VPC from outside of the VPC through a VpcLink resource.
+* `service/ec2`: Updates service API and documentation
+  * Adds the following updates: 1. Spread Placement ensures that instances are placed on distinct hardware in order to reduce correlated failures. 2. Inter-region VPC Peering allows customers to peer VPCs across different AWS regions without requiring additional gateways, VPN connections or physical hardware
+* `service/lambda`: Updates service API and documentation
+  * AWS Lambda now supports the ability to set the concurrency limits for individual functions, and increasing memory to 3008 MB.
+
+Release v1.12.37 (2017-11-30)
+===
+
+### Service Client Updates
+* `service/Ardi`: Adds new service
+* `service/autoscaling`: Updates service API and documentation
+  * You can now use Auto Scaling with EC2 Launch Templates via the CreateAutoScalingGroup and UpdateAutoScalingGroup APIs.
+* `service/ec2`: Updates service API and documentation
+  * Adds the following updates: 1. T2 Unlimited enables high CPU performance for any period of time whenever required 2. You are now able to create and launch EC2 m5 and h1 instances
+* `service/lightsail`: Updates service API and documentation
+  * This release adds support for load balancer and TLS/SSL certificate management. This set of APIs allows customers to create, manage, and scale secure load balanced applications on Lightsail infrastructure. To provide support for customers who manage their DNS on Lightsail, we've added the ability create an Alias A type record which can point to a load balancer DNS name via the CreateDomainEntry API http://docs.aws.amazon.com/lightsail/2016-11-28/api-reference/API_CreateDomainEntry.html.
+* `service/ssm`: Updates service API and documentation
+  * This release updates AWS Systems Manager APIs to enable executing automations at controlled rate, target resources in a resource groups and execute entire automation at once or single step at a time. It is now also possible to use YAML, in addition to JSON, when creating Systems Manager documents.
+* `service/waf`: Updates service API and documentation
+  * This release adds support for rule group and managed rule group. Rule group is a container of rules that customers can create, put rules in it and associate the rule group to a WebACL. All rules in a rule group will function identically as they would if each rule was individually associated to the WebACL. Managed rule group is a pre-configured rule group composed by our security partners and made available via the AWS Marketplace. Customers can subscribe to these managed rule groups, associate the managed rule group to their WebACL and start using them immediately to protect their resources.
+* `service/waf-regional`: Updates service API and documentation
+
+Release v1.12.36 (2017-11-29)
+===
+
+### Service Client Updates
+* `service/DeepInsight`: Adds new service
+* `service/IronmanRuntime`: Adds new service
+* `service/Orchestra - Laser`: Adds new service
+* `service/SageMaker`: Adds new service
+* `service/Shine`: Adds new service
+* `service/archived.kinesisvideo`: Adds new service
+* `service/data.kinesisvideo`: Adds new service
+* `service/dynamodb`: Updates service API and documentation
+  * Amazon DynamoDB now supports the following features: Global Table and On-Demand Backup. Global Table is a fully-managed, multi-region, multi-master database. DynamoDB customers can now write anywhere and read anywhere with single-digit millisecond latency by performing database operations closest to where end users reside. Global Table also enables customers to disaster-proof their applications, keeping them running and data accessible even in the face of natural disasters or region disruptions. Customers can set up Global Table with just a few clicks in the AWS Management Console-no application rewrites required. On-Demand Backup capability is to protect data from loss due to application errors, and meet customers' archival needs for compliance and regulatory reasons. Customers can backup and restore their DynamoDB table data anytime, with a single-click in the AWS management console or a single API call. Backup and restore actions execute with zero impact on table performance or availability. For more information, see the Amazon DynamoDB Developer Guide.
+* `service/ecs`: Updates service API and documentation
+  * Amazon Elastic Container Service (Amazon ECS) released a new launch type for running containers on a serverless infrastructure. The Fargate launch type allows you to run your containerized applications without the need to provision and manage the backend infrastructure. Just register your task definition and Fargate launches the container for you.
+* `service/glacier`: Updates service API and documentation
+  * This release includes support for Glacier Select, a new feature that allows you to filter and analyze your Glacier archives and store the results in a user-specified S3 location.
+* `service/greengrass`: Updates service API and documentation
+  * Greengrass OTA feature allows updating Greengrass Core and Greengrass OTA Agent. Local Resource Access feature allows Greengrass Lambdas to access local resources such as peripheral devices and volumes.
+* `service/iot`: Updates service API and documentation
+  * This release adds support for a number of new IoT features, including AWS IoT Device Management (Jobs, Fleet Index and Thing Registration), Thing Groups, Policies on Thing Groups, Registry & Job Events, JSON Logs, Fine-Grained Logging Controls, Custom Authorization and AWS Service Authentication Using X.509 Certificates.
+* `service/kinesisvideo`: Adds new service
+  * Announcing Amazon Kinesis Video Streams, a fully managed video ingestion and storage service. Kinesis Video Streams makes it easy to securely stream video from connected devices to AWS for machine learning, analytics, and processing. You can also stream other time-encoded data like RADAR and LIDAR signals using Kinesis Video Streams.
+* `service/rekognition`: Updates service API, documentation, and paginators
+  * This release introduces Amazon Rekognition support for video analysis.
+* `service/s3`: Updates service API and documentation
+  * This release includes support for Glacier Select, a new feature that allows you to filter and analyze your Glacier storage class objects and store the results in a user-specified S3 location.
+
+Release v1.12.35 (2017-11-29)
+===
+
+### Service Client Updates
+* `service/AmazonMQ`: Adds new service
+* `service/GuardDuty`: Adds new service
+* `service/apigateway`: Updates service API and documentation
+  * Changes related to CanaryReleaseDeployment feature. Enables API developer to create a deployment as canary deployment and test API changes with percentage of customers before promoting changes to all customers.
+* `service/batch`: Updates service API and documentation
+  * Add support for Array Jobs which allow users to easily submit many copies of a job with a single API call. This change also enhances the job dependency model to support N_TO_N and sequential dependency chains. The ListJobs and DescribeJobs APIs now have the ability to list or describe the status of entire Array Jobs or individual elements within the array.
+* `service/cognito-idp`: Updates service API and documentation
+* `service/deepdish`: Adds new service
+  * AWS AppSync is an enterprise-level, fully managed GraphQL service with real-time data synchronization and offline programming features.
+* `service/ec2`: Updates service API and documentation
+  * Adds the following updates: 1. You are now able to host a service powered by AWS PrivateLink to provide private connectivity to other VPCs. You are now also able to create endpoints to other services powered by PrivateLink including AWS services, Marketplace Seller services or custom services created by yourself or other AWS VPC customers. 2. You are now able to save launch parameters in a single template that can be used with Auto Scaling, Spot Fleet, Spot, and On Demand instances. 3. You are now able to launch Spot instances via the RunInstances API, using a single additional parameter. RunInstances will response synchronously with an instance ID should capacity be available for your Spot request. 4. A simplified Spot pricing model which delivers low, predictable prices that adjust gradually, based on long-term trends in supply and demand. 5. Amazon EC2 Spot can now hibernate Amazon EBS-backed instances in the event of an interruption, so your workloads pick up from where they left off. Spot can fulfill your request by resuming instances from a hibernated state when capacity is available.
+* `service/lambda`: Updates service API and documentation
+  * Lambda aliases can now shift traffic between two function versions, based on preassigned weights.
+
 Release v1.12.34 (2017-11-27)
 ===
 

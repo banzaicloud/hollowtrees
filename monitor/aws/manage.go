@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/monitor/types"
-	"github.com/banzaicloud/hollowtrees/recommender"
+	"github.com/banzaicloud/spot-recommender/recommender"
 	"github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 )
