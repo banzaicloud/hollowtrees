@@ -3,8 +3,10 @@ package main
 import (
 	"time"
 
+	"github.com/banzaicloud/hollowtrees/api"
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/monitor"
+	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -30,5 +32,11 @@ func main() {
 
 	monitor.Start(region, bufferSize, pluginAddress, monitorInterval*time.Second, reevaluateInterval*time.Second)
 	log.Info("Started VM pool monitor")
+
+	router := gin.Default()
+	log.Info("Initialized gin router")
+	api.ConfigureRoutes(router)
+	log.Info("Configured routes")
+	router.Run(":9091")
 
 }
