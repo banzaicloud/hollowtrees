@@ -16,11 +16,8 @@ type AwsCloudEngine struct {
 
 var log *logrus.Entry
 
-func init() {
-	log = conf.Logger().WithField("package", "engine/aws")
-}
-
 func New(region string) (engine.CloudEngine, error) {
+	log = conf.Logger().WithField("package", "engine/aws")
 	session, err := session.NewSession()
 	if err != nil {
 		log.Info("Error creating session ", err)

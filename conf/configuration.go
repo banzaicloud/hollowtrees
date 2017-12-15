@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func init() {
+func Init() {
 
 	viper.AddConfigPath("$HOME/conf")
 	viper.AddConfigPath("./")

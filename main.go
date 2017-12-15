@@ -13,12 +13,11 @@ import (
 
 var log *logrus.Entry
 
-func init() {
+func main() {
+
+	conf.Init()
 	log = conf.Logger().WithField("package", "main")
 	log.Info("Logger configured.")
-}
-
-func main() {
 
 	region := viper.GetString("dev.aws.region")
 	log.Info("Region to monitor: ", region)

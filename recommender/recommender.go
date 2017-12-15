@@ -54,7 +54,6 @@ func init() {
 	if err != nil {
 		//TODO: handle error
 	}
-	log = conf.Logger().WithField("package", "recommender")
 }
 
 type ByNumericValue []string
@@ -68,6 +67,8 @@ func (a ByNumericValue) Less(i, j int) bool {
 }
 
 func RecommendSpotInstanceTypes(region string, requestedAZs []string, baseInstanceType string) (AZRecommendation, error) {
+
+	log = conf.Logger().WithField("package", "recommender")
 
 	log.WithFields(logrus.Fields{
 		"region":             region,

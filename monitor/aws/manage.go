@@ -18,10 +18,6 @@ import (
 
 var log *logrus.Entry
 
-func init() {
-	log = conf.Logger().WithField("package", "monitor/aws")
-}
-
 type AutoScalingGroupManager struct {
 	session *session.Session
 }
@@ -35,6 +31,7 @@ type InstanceType struct {
 type InstanceTypes map[InstanceType][]*string
 
 func New(region string) (*AutoScalingGroupManager, error) {
+	log = conf.Logger().WithField("package", "monitor/aws")
 	session, err := session.NewSession(&aws.Config{
 		Region: aws.String(region),
 	})

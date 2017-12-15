@@ -17,11 +17,8 @@ import (
 
 var log *logrus.Entry
 
-func init() {
-	log = conf.Logger().WithField("package", "api")
-}
-
 func ConfigureRoutes(router *gin.Engine) {
+	log = conf.Logger().WithField("package", "api")
 	log.Info("configuring routes")
 	v1 := router.Group("/api/v1/")
 	{

@@ -11,10 +11,6 @@ import (
 
 var log *logrus.Entry
 
-func init() {
-	log = conf.Logger().WithField("package", "monitor")
-}
-
 type VmPoolRequest struct {
 	VmPoolTask *types.VmPoolTask
 }
@@ -25,6 +21,7 @@ type VmPoolManager interface {
 }
 
 func Start(region string, bufferSize int, pluginAddress string, monitorInterval time.Duration, reevaluateInterval time.Duration) {
+	log = conf.Logger().WithField("package", "monitor")
 	vmPoolManager, err := aws.New(region)
 	if err != nil {
 		log.Fatal("Couldn't initialize VM Pool manager: ", err)
