@@ -7,13 +7,21 @@ option java_outer_classname = "ActionProto";
 package action;
 
 service Action {
-  rpc HandleAlert(AlertEvent) returns (ActionResult) {}
+    rpc HandleAlert (AlertEvent) returns (ActionResult) {}
+}
+
+message Resource {
+    string resourceType = 1;
+    string resourceId = 2;
 }
 
 message AlertEvent {
-  string alertName = 1;
+    string eventId = 1;
+    string eventType = 2;
+    Resource resource = 3;
+    map<string, string> data = 4;
 }
 
 message ActionResult {
-  string status = 1;
+    string status = 1;
 }

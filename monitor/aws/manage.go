@@ -382,28 +382,3 @@ func cleanupLCs(asgSvc *autoscaling.AutoScaling, managedASGNames []string) {
 		}
 	}
 }
-
-func (asgm *AutoScalingGroupManager) UpdateVmPool(vmPoolTask *types.VmPoolTask) error {
-	switch *vmPoolTask.VmPoolAction {
-	case "initializing":
-		if err := initializeASG(asgm, vmPoolTask); err != nil {
-			return err
-		}
-	case "upscaling":
-		if err := upscaleASG(asgm, vmPoolTask); err != nil {
-			return err
-		}
-	case "downscaling":
-		if err := downscaleASG(asgm, vmPoolTask); err != nil {
-			return err
-		}
-	case "rebalancing":
-		if err := rebalanceASG(asgm, vmPoolTask); err != nil {
-			return err
-		}
-	}
-	if err := updateLaunchConfig(asgm, vmPoolTask); err != nil {
-		return err
-	}
-	return nil
-}

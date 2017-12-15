@@ -32,8 +32,11 @@ func newServer() actionServer {
 
 func (as *actionServer) HandleAlert(ctx context.Context, event *action.AlertEvent) (*action.ActionResult, error) {
 	fmt.Println(ctx)
-	e := AlertEvent{
-		AlertName: event.AlertName,
+	var e = AlertEvent{
+		EventType: event.EventType,
+		Resource:  event.Resource,
+		EventId:   event.EventId,
+		Data:      event.Data,
 	}
 
 	result, err := as.AlertHandler.Handle(&e)

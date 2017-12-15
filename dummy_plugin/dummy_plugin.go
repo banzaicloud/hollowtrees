@@ -15,12 +15,9 @@ func newDummyAlertHandler() *DummyAlertHandler {
 }
 
 // Handle : dummy implementation that returns the alert event's name
-func (*DummyAlertHandler) Handle(event *as.AlertEvent) (*as.ActionResult, error) {
-	fmt.Printf("got GRPC request, handling alert: %v\n", event.AlertName)
-	ar := as.ActionResult{
-		Status: event.AlertName,
-	}
-	return &ar, nil
+func (d *DummyAlertHandler) Handle(event *as.AlertEvent) (*as.ActionResult, error) {
+	fmt.Printf("got GRPC request, handling alert: %#v\n", event)
+	return &as.ActionResult{Status: "ok"}, nil
 }
 
 func main() {

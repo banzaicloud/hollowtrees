@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/banzaicloud/hollowtrees/action"
+	"github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
@@ -42,7 +43,12 @@ func (d *Dispatcher) Start() {
 					defer conn.Close()
 					client := action.NewActionClient(conn)
 					result, err := client.HandleAlert(context.Background(), &action.AlertEvent{
-						AlertName: "spot-termination-notice",
+						EventId:   uuid.NewV4().String(),
+						EventType: *request.VmPoolTask.VmPoolAction,
+						Resource: &action.Resource{
+							ResourceType: "aws-asg-exporter", //TODO: plugin.name
+							ResourceId:   *request.VmPoolTask.VmPoolName,
+						},
 					})
 					log.Info(result.GetStatus)
 					if err != nil {
