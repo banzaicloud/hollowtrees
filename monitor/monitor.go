@@ -1,8 +1,6 @@
 package monitor
 
 import (
-	"time"
-
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/monitor/aws"
 	"github.com/banzaicloud/hollowtrees/monitor/types"
@@ -20,7 +18,7 @@ type VmPoolManager interface {
 	ReevaluateVmPools() ([]*types.VmPoolTask, error)
 }
 
-func Start(region string, bufferSize int, pluginAddress string, monitorInterval time.Duration, reevaluateInterval time.Duration) {
+func Start(region string, bufferSize int, pluginAddress string) {
 	log = conf.Logger().WithField("package", "monitor")
 	vmPoolManager, err := aws.New(region)
 	if err != nil {
@@ -29,5 +27,5 @@ func Start(region string, bufferSize int, pluginAddress string, monitorInterval 
 	poolRequestChan := make(chan VmPoolRequest, bufferSize)
 	poolResponseChan := make(chan VmPoolRequest, bufferSize)
 	NewDispatcher(pluginAddress, poolRequestChan, poolResponseChan, vmPoolManager).Start()
-	NewCollector(monitorInterval, reevaluateInterval, poolRequestChan, poolResponseChan, vmPoolManager).Start()
+	//NewCollector(monitorInterval, reevaluateInterval, poolRequestChan, poolResponseChan, vmPoolManager).Start()
 }

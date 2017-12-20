@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	"github.com/banzaicloud/hollowtrees/api"
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/monitor"
@@ -25,12 +23,12 @@ func main() {
 	log.Info("Buffer size for tasks: ", bufferSize)
 	pluginAddress := viper.GetString("dev.plugin.address")
 	log.Info("Address of action plugin: ", pluginAddress)
-	monitorInterval := viper.GetDuration("dev.monitor.intervalInSeconds")
-	log.Info("Monitor interval in seconds: ", monitorInterval)
-	reevaluateInterval := viper.GetDuration("dev.monitor.reevaluateIntervalInSeconds")
-	log.Info("Reevaluation interval in seconds: ", reevaluateInterval)
+	//monitorInterval := viper.GetDuration("dev.monitor.intervalInSeconds")
+	//log.Info("Monitor interval in seconds: ", monitorInterval)
+	//reevaluateInterval := viper.GetDuration("dev.monitor.reevaluateIntervalInSeconds")
+	//log.Info("Reevaluation interval in seconds: ", reevaluateInterval)
 
-	monitor.Start(region, bufferSize, pluginAddress, monitorInterval*time.Second, reevaluateInterval*time.Second)
+	monitor.Start(region, bufferSize, pluginAddress)
 	log.Info("Started VM pool monitor")
 
 	router := gin.Default()
