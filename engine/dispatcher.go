@@ -1,9 +1,11 @@
-package monitor
+package engine
 
 import (
 	"context"
 
 	"github.com/banzaicloud/hollowtrees/action"
+	"github.com/banzaicloud/hollowtrees/conf"
+	"github.com/banzaicloud/hollowtrees/engine/types"
 	"github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -11,30 +13,27 @@ import (
 
 type Dispatcher struct {
 	PluginAddress string
-	Requests      chan VmPoolRequest
-	Results       chan VmPoolRequest
-	VmPoolManager VmPoolManager
+	Requests      chan types.AlertRequest
 }
 
-func NewDispatcher(pluginAddress string, requests chan VmPoolRequest, results chan VmPoolRequest, manager VmPoolManager) *Dispatcher {
+func NewDispatcher(pluginAddress string, requests chan types.AlertRequest) *Dispatcher {
 	return &Dispatcher{
 		PluginAddress: pluginAddress,
-		Results:       results,
 		Requests:      requests,
-		VmPoolManager: manager,
 	}
 }
 
+var log *logrus.Entry
+
 func (d *Dispatcher) Start() {
+	log = conf.Logger().WithField("package", "engine")
 	go func() {
 		for {
 			select {
 			case request := <-d.Requests:
 				log.WithFields(logrus.Fields{
-					"autoScalingGroup": *request.VmPoolTask.VmPoolName,
-					"taskID":           request.VmPoolTask.TaskID,
-					"action":           *request.VmPoolTask.VmPoolAction,
-				}).Info("Received work request")
+					"alertGroupKey": request.AlertInfo.GroupKey,
+				}).Info("Received alert request")
 				go func() {
 					conn, err := grpc.Dial(d.PluginAddress, grpc.WithInsecure())
 					if err != nil {
@@ -42,15 +41,16 @@ func (d *Dispatcher) Start() {
 					}
 					defer conn.Close()
 					client := action.NewActionClient(conn)
+					// TODO: convert alertinfo to events
 					result, err := client.HandleAlert(context.Background(), &action.AlertEvent{
 						EventId:   uuid.NewV4().String(),
-						EventType: *request.VmPoolTask.VmPoolAction,
+						EventType: request.AlertInfo.Alerts[0].Labels["alertname"],
 						Resource: &action.Resource{
 							ResourceType: "aws-asg-exporter", //TODO: plugin.name
-							ResourceId:   *request.VmPoolTask.VmPoolName,
+							ResourceId:   request.AlertInfo.Alerts[0].Labels["instance"],
 						},
 					})
-					log.Info(result.GetStatus)
+					log.Infof("status: %s", result.GetStatus())
 					if err != nil {
 						log.Errorf("Failed to handle action: %v", err)
 					}

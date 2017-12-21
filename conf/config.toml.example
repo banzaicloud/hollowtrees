@@ -8,11 +8,3 @@ loglevel = "debug"
 # plugin settings
 [dev.plugin]
 address = "localhost:8888"
-
-# aws monitor settings
-[dev.aws]
-region = "eu-west-1"
-
-[dev.monitor]
-intervalInSeconds = 3
-reevaluateIntervalInSeconds = 60

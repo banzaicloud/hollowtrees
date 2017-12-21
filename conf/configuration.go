@@ -26,8 +26,8 @@ func Init() {
 	viper.AutomaticEnv()
 
 	viper.SetDefault("dev.aws.region", "eu-west-1")
-	viper.SetDefault("dev.monitor.bufferSize", "100")
+	viper.SetDefault("dev.engine.bufferSize", "100")
 	viper.SetDefault("dev.plugin.address", "localhost:8888")
-	viper.SetDefault("dev.monitor.intervalInSeconds", "3")
-	viper.SetDefault("dev.monitor.reevaluateIntervalInSeconds", "60")
+	viper.SetDefault("dev.engine.intervalInSeconds", "3")
+	viper.SetDefault("dev.engine.reevaluateIntervalInSeconds", "60")
 }

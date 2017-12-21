@@ -1,25 +1,50 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/banzaicloud/hollowtrees/engine"
+	"github.com/banzaicloud/hollowtrees/engine/types"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/go-playground/validator.v8"
 )
 
 var log = logrus.New().WithField("package", "api")
 
-func ConfigureRoutes(router *gin.Engine) {
-	log.Info("configuring routes")
-	v1 := router.Group("/api/v1/")
-	{
-		v1.POST("/alerts", handleAlert)
+type Router struct {
+	Collector *engine.Collector
+}
+
+func NewRouter(collector *engine.Collector) *Router {
+	return &Router{
+		Collector: collector,
 	}
 }
 
-func handleAlert(c *gin.Context) {
-	log.Info("handling alert")
-	rawData, _ := c.GetRawData()
-	log.Info(string(rawData))
+func ConfigureRoutes(engine *gin.Engine, router *Router) {
+	log.Info("configuring routes")
+	v1 := engine.Group("/api/v1/")
+	{
+		v1.POST("/alerts", router.handleAlert)
+	}
+}
+
+func (r *Router) handleAlert(c *gin.Context) {
+
+	alertInfo := new(types.AlertInfo)
+	if err := c.BindJSON(alertInfo); err != nil {
+		if ve, ok := err.(validator.ValidationErrors); !ok {
+			c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Failed to process alert", "error": ve.Error()})
+			fmt.Println(err)
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{"status": http.StatusBadRequest, "message": "Validation failed", "error": ve.Error()})
+		}
+		return
+	}
+
+	log.Infof("Received alert: %#v", alertInfo)
+	r.Collector.Collect(alertInfo)
 	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": "ok"})
 }
