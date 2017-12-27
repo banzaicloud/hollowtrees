@@ -1,0 +1,14 @@
+package: github.com/banzaicloud/hollowtrees
+import:
+- package: github.com/gin-gonic/gin
+- package: github.com/golang/protobuf
+  subpackages:
+  - proto
+- package: github.com/satori/go.uuid
+- package: github.com/sirupsen/logrus
+- package: github.com/spf13/viper
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: google.golang.org/grpc
+- package: gopkg.in/go-playground/validator.v8
