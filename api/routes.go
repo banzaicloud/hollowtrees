@@ -32,9 +32,8 @@ func ConfigureRoutes(engine *gin.Engine, router *Router) {
 }
 
 func (r *Router) handleAlert(c *gin.Context) {
-
-	alertInfo := new(types.AlertInfo)
-	if err := c.BindJSON(alertInfo); err != nil {
+	alerts := make([]types.Alert, 1)
+	if err := c.BindJSON(&alerts); err != nil {
 		if ve, ok := err.(validator.ValidationErrors); !ok {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": http.StatusInternalServerError, "message": "Failed to process alert", "error": ve.Error()})
 			fmt.Println(err)
@@ -44,7 +43,7 @@ func (r *Router) handleAlert(c *gin.Context) {
 		return
 	}
 
-	log.Infof("Received alert: %#v", alertInfo)
-	r.Collector.Collect(alertInfo)
+	log.Infof("Received alerts: %#v", alerts)
+	r.Collector.Collect(alerts)
 	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": "ok"})
 }

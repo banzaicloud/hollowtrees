@@ -31,9 +31,7 @@ func (d *Dispatcher) Start() {
 		for {
 			select {
 			case request := <-d.Requests:
-				log.WithFields(logrus.Fields{
-					"alertGroupKey": request.AlertInfo.GroupKey,
-				}).Info("Received alert request")
+				log.Info("Received alerts request")
 				go func() {
 					conn, err := grpc.Dial(d.PluginAddress, grpc.WithInsecure())
 					if err != nil {
@@ -44,10 +42,10 @@ func (d *Dispatcher) Start() {
 					// TODO: convert alertinfo to events
 					result, err := client.HandleAlert(context.Background(), &action.AlertEvent{
 						EventId:   uuid.NewV4().String(),
-						EventType: request.AlertInfo.Alerts[0].Labels["alertname"],
+						EventType: request.Alerts[0].Labels["alertname"],
 						Resource: &action.Resource{
 							ResourceType: "aws-asg-exporter", //TODO: plugin.name
-							ResourceId:   request.AlertInfo.Alerts[0].Labels["instance"],
+							ResourceId:   request.Alerts[0].Labels["instance"],
 						},
 					})
 					log.Infof("status: %s", result.GetStatus())

@@ -23,6 +23,9 @@ func main() {
 	pluginAddress := viper.GetString("dev.plugin.address")
 	log.Info("Address of action plugin: ", pluginAddress)
 
+	rules := viper.GetStringMap("rules")
+	log.Infof("%v", rules)
+
 	poolRequestChan := make(chan types.AlertRequest, bufferSize)
 	engine.NewDispatcher(pluginAddress, poolRequestChan).Start()
 	collector := engine.NewCollector(poolRequestChan)

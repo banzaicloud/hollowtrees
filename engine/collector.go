@@ -2,7 +2,6 @@ package engine
 
 import (
 	"github.com/banzaicloud/hollowtrees/engine/types"
-	"github.com/sirupsen/logrus"
 )
 
 type Collector struct {
@@ -15,10 +14,8 @@ func NewCollector(requests chan types.AlertRequest) *Collector {
 	}
 }
 
-func (c *Collector) Collect(alert *types.AlertInfo) {
+func (c *Collector) Collect(alerts []types.Alert) {
 	// TODO: log fields
-	log.WithFields(logrus.Fields{
-		"alertGroupKey": alert.GroupKey,
-	}).Info("Pushing VM pool task to processor queue")
-	c.Requests <- types.AlertRequest{AlertInfo: alert}
+	log.Info("Pushing alerts to queue")
+	c.Requests <- types.AlertRequest{Alerts: alerts}
 }
