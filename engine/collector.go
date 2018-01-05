@@ -19,9 +19,9 @@ func NewCollector(requests chan action.AlertEvent) *Collector {
 }
 
 func (c *Collector) Collect(alerts []types.Alert) {
-	log.Info("Converting alerts and pushing to queue")
 	for _, alert := range alerts {
 		event := c.Convert(alert)
+		log.WithField("eventId", event.EventId).Infof("Pushing event to queue: %#v", event)
 		c.Requests <- *event
 	}
 }
@@ -29,7 +29,7 @@ func (c *Collector) Collect(alerts []types.Alert) {
 func (c *Collector) Convert(alert types.Alert) *action.AlertEvent {
 	event := &action.AlertEvent{
 		EventId:   uuid.NewV4().String(),
-		EventType: fmt.Sprintf("prometheus.server.%s", alert.Labels["alertname"]),
+		EventType: fmt.Sprintf("prometheus.server.alert.%s", alert.Labels["alertname"]),
 		Resource: &action.Resource{
 			ResourceType: "prometheus.server",
 			ResourceId:   alert.GeneratorURL,

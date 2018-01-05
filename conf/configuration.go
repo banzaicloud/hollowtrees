@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/banzaicloud/hollowtrees/engine/types"
 	"github.com/spf13/viper"
 )
 
@@ -25,9 +26,23 @@ func Init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 
-	viper.SetDefault("dev.aws.region", "eu-west-1")
-	viper.SetDefault("dev.engine.bufferSize", "100")
-	viper.SetDefault("dev.plugin.address", "localhost:8888")
-	viper.SetDefault("dev.engine.intervalInSeconds", "3")
-	viper.SetDefault("dev.engine.reevaluateIntervalInSeconds", "60")
+	viper.SetDefault("global.bufferSize", 100)
+}
+
+func ReadPlugins() types.Plugins {
+	var plugins types.Plugins
+	err := viper.UnmarshalKey("action_plugins", &plugins)
+	if err != nil {
+		log.Fatalf("couldn't parse plugins config, %v", err)
+	}
+	return plugins
+}
+
+func ReadRules() types.Rules {
+	var rules types.Rules
+	err := viper.UnmarshalKey("rules", &rules)
+	if err != nil {
+		log.Fatalf("couldn't parse rules config, %v", err)
+	}
+	return rules
 }

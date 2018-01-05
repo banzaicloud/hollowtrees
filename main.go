@@ -18,13 +18,12 @@ func main() {
 	log = conf.Logger().WithField("package", "main")
 	log.Info("Logger configured.")
 
-	bufferSize := viper.GetInt("dev.engine.bufferSize")
+	bufferSize := viper.GetInt("global.bufferSize")
 	log.Info("Buffer size for tasks: ", bufferSize)
-	pluginAddress := viper.GetString("dev.plugin.address")
-	log.Info("Address of action plugin: ", pluginAddress)
 
 	poolRequestChan := make(chan action.AlertEvent, bufferSize)
-	engine.NewDispatcher(pluginAddress, poolRequestChan).Start()
+
+	engine.NewDispatcher(conf.ReadPlugins(), conf.ReadRules(), poolRequestChan).Start()
 	collector := engine.NewCollector(poolRequestChan)
 
 	apiEngine := gin.Default()
