@@ -1,10 +1,10 @@
 package main
 
 import (
+	"github.com/banzaicloud/hollowtrees/action"
 	"github.com/banzaicloud/hollowtrees/api"
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/engine"
-	"github.com/banzaicloud/hollowtrees/engine/types"
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -23,10 +23,7 @@ func main() {
 	pluginAddress := viper.GetString("dev.plugin.address")
 	log.Info("Address of action plugin: ", pluginAddress)
 
-	rules := viper.GetStringMap("rules")
-	log.Infof("%v", rules)
-
-	poolRequestChan := make(chan types.AlertRequest, bufferSize)
+	poolRequestChan := make(chan action.AlertEvent, bufferSize)
 	engine.NewDispatcher(pluginAddress, poolRequestChan).Start()
 	collector := engine.NewCollector(poolRequestChan)
 

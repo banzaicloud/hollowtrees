@@ -5,18 +5,16 @@ import (
 
 	"github.com/banzaicloud/hollowtrees/action"
 	"github.com/banzaicloud/hollowtrees/conf"
-	"github.com/banzaicloud/hollowtrees/engine/types"
-	"github.com/satori/go.uuid"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
 type Dispatcher struct {
 	PluginAddress string
-	Requests      chan types.AlertRequest
+	Requests      chan action.AlertEvent
 }
 
-func NewDispatcher(pluginAddress string, requests chan types.AlertRequest) *Dispatcher {
+func NewDispatcher(pluginAddress string, requests chan action.AlertEvent) *Dispatcher {
 	return &Dispatcher{
 		PluginAddress: pluginAddress,
 		Requests:      requests,
@@ -39,15 +37,7 @@ func (d *Dispatcher) Start() {
 					}
 					defer conn.Close()
 					client := action.NewActionClient(conn)
-					// TODO: convert alertinfo to events
-					result, err := client.HandleAlert(context.Background(), &action.AlertEvent{
-						EventId:   uuid.NewV4().String(),
-						EventType: request.Alerts[0].Labels["alertname"],
-						Resource: &action.Resource{
-							ResourceType: "aws-asg-exporter", //TODO: plugin.name
-							ResourceId:   request.Alerts[0].Labels["instance"],
-						},
-					})
+					result, err := client.HandleAlert(context.Background(), &request)
 					log.Infof("status: %s", result.GetStatus())
 					if err != nil {
 						log.Errorf("Failed to handle action: %v", err)

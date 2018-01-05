@@ -2,10 +2,6 @@ package types
 
 import "time"
 
-type AlertRequest struct {
-	Alerts []Alert
-}
-
 type Alert struct {
 	Labels       map[string]string `json:"labels"`
 	Annotations  map[string]string `json:"annotations"`
