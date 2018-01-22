@@ -30,6 +30,9 @@ func main() {
 	log.Info("Initialized gin router")
 	api.ConfigureRoutes(apiEngine, api.NewRouter(collector))
 	log.Info("Configured routes")
-	apiEngine.Run(":9091")
+
+	bindAddr := viper.GetString("global.bindAddr")
+	log.Infof("Starting API on %s", bindAddr)
+	apiEngine.Run(bindAddr)
 
 }

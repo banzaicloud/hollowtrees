@@ -27,6 +27,7 @@ func Init() {
 	viper.AutomaticEnv()
 
 	viper.SetDefault("global.bufferSize", 100)
+	viper.SetDefault("global.bindAddr", ":9091")
 }
 
 func ReadPlugins() types.Plugins {
