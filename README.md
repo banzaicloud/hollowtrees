@@ -8,3 +8,45 @@ It handles spot price surges within one region or availability zone gracefully a
 </p>
 
 **Warning:** _Hollowtrees is experimental, under development and does not have a stable release yet. If in doubt, don't go out._
+
+### Quick start
+
+Building the project is as simple as running a go build command. The result is a statically linked executable binary.
+```
+go build .
+./hollowtrees
+```
+
+Configuration of the project is done through a YAML config file. An example for that can be found under conf/config.yaml.example
+
+### Configuring Prometheus to send alerts to Hollowtrees
+
+Hollowtrees is listening on an API similar to the Prometheus Alert Manager and it can be configured in Prometheus as an Alert Manager. For example if Hollowtrees is running locally on port 9092 (configurable through `global.bindAddr`), Prometheus can be configured like this to send its alerts to Hollowtrees directly:
+
+```
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+       - localhost:9092
+
+```
+
+### Configuring rules
+
+After a Prometheus alert is received by Hollowtrees, it first converts it to an event that complies to the [OpenEvents](https://openevents.io) specification, then it processes it based on the rules configured in the `config.yaml` file, and sends events to its configured action plugins. An example configuration can be found in `conf/config.yaml.example` under `action_plugin` and `rules`.
+
+Hollowtrees uses GRPC to send events to its action plugins, and calls the action plugins sequentially. This very simple rule engine will probably change once Hollowtrees will have a release and will support different calling mechanisms, and passing of configuration parameters to the plugins.
+
+Alerts coming from Prometheus are converted to events with an event_type of `prometheus.server.alert.<AlertName>`. Prometheus labels are converted to the `data` payload. Data payload elements can be used in the rules to forward events to the plugins only when it matches a specific string.
+
+### Action plugins
+
+Action plugins are microservices that can react to different Hollowtrees events. They are listening on a GRPC endpoint and processes events in an arbitrary way. An example action plugin is https://github.com/banzaicloud/ht-aws-asg-action-plugin that reacts to specific spot-instance related events by swapping a spot instance in an auto scaling group to another with better cost or stability characteristics.
+To create an action plugin, the `github.com/banzaicloud/hollowtrees/actionserver` package must be imported, the `AlertHandler` interface must be implemented.and the GRPC server must be started with
+
+```
+as.Serve(port, newAlertHandler())
+```
+

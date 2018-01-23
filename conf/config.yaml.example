@@ -1,4 +1,5 @@
 global:
+  bindAddr: ":9092"
   buffersize: 100
 
 # logger settings
