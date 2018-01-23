@@ -43,8 +43,8 @@ Alerts coming from Prometheus are converted to events with an event_type of `pro
 
 ### Action plugins
 
-Action plugins are microservices that can react to different Hollowtrees events. They are listening on a GRPC endpoint and processes events in an arbitrary way. An example action plugin is https://github.com/banzaicloud/ht-aws-asg-action-plugin that reacts to specific spot-instance related events by swapping a spot instance in an auto scaling group to another with better cost or stability characteristics.
-To create an action plugin, the `github.com/banzaicloud/hollowtrees/actionserver` package must be imported, the `AlertHandler` interface must be implemented.and the GRPC server must be started with
+Action plugins are microservices that can react to different Hollowtrees events. They are listening on a GRPC endpoint and processing events in an arbitrary way. An example action plugin is https://github.com/banzaicloud/ht-aws-asg-action-plugin that reacts to specific spot-instance related events by swapping a spot instance in an auto scaling group to another with better cost or stability characteristics.
+To create an action plugin, the `github.com/banzaicloud/hollowtrees/actionserver` package must be imported, the `AlertHandler` interface must be implemented and the GRPC server must be started with
 
 ```
 as.Serve(port, newAlertHandler())
