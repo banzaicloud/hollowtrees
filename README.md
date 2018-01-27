@@ -33,6 +33,8 @@ alerting:
 
 ```
 
+#### Batteries included 
+
 There are a few default Hollowtrees node exporters associated to alerts:
 
 * AWS spot instance termination [collector](https://github.com/banzaicloud/spot-termination-collector)
@@ -46,6 +48,8 @@ Hollowtrees uses gRPC to send events to its action plugins, and calls the action
 
 Alerts coming from Prometheus are converted to events with an event_type of `prometheus.server.alert.<AlertName>`. Prometheus labels are converted to the `data` payload. Data payload elements can be used in the rules to forward events to the plugins only when it matches a specific string.
 
+#### Batteries included 
+
 There are a few default Hollowtrees rules available:
 
 * AWS Spot Instance [recommender](https://github.com/banzaicloud/spot-recommender)
@@ -58,6 +62,8 @@ To create an action plugin, the [actionserver](github.com/banzaicloud/hollowtree
 ```
 as.Serve(port, newAlertHandler())
 ```
+
+#### Batteries included 
 
 There are a few default Hollowtrees action plugins available:
 
