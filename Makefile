@@ -1,20 +1,38 @@
-.DEFAULT_GOAL := help
-.PHONY: help
+EXECUTABLE ?= hollowtrees
+IMAGE ?= banzaicloud/$(EXECUTABLE)
+TAG ?= dev-$(shell git log -1 --pretty=format:"%h")
 
-OS := $(shell uname -s)
-GOFILES_NOVENDOR = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+LD_FLAGS = -X "main.version=$(TAG)"
+PACKAGES = $(shell go list ./... | grep -v /vendor/)
 
-build: ## Builds binary package
-	go build .
+.PHONY: _no-target-specified
+_no-target-specified:
+	$(error Please specify the target to make - `make list` shows targets.)
 
-deps: ## Install dependencies required for building
-	which dep > /dev/null || go get -u github.com/golang/dep/cmd/dep
-
-help: ## Generates this help message
-	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "�33[36m%-30s�33[0m %sn", $$1, $$2}'
-
+.PHONY: list
 list:
 	@$(MAKE) -pRrn : -f $(MAKEFILE_LIST) 2>/dev/null | awk -v RS= -F: '/^# File/,/^# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | egrep -v -e '^[^[:alnum:]]' -e '^$@$$' | sort
 
+all: clean deps fmt vet docker push
+
+clean:
+	go clean -i ./...
+
+deps:
+	go get ./...
+
 fmt:
-	@gofmt -w ${GOFILES_NOVENDOR}
+	go fmt $(PACKAGES)
+
+vet:
+	go vet $(PACKAGES)
+
+docker:
+	docker build --rm -t $(IMAGE):$(TAG) .
+
+push:
+	docker push $(IMAGE):$(TAG)
+
+run-dev:
+	. .env
+	go run $(wildcard *.go)
