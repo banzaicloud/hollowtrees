@@ -9,6 +9,8 @@ Handles spot price surges within one region or availability zone and reschedules
 
 **Warning:** _Hollowtrees is experimental, under development and does not have a stable release yet. If in doubt, don't go out._
 
+>For an introduction and overview of the architecture please read the following blog [post](https://banzaicloud.com/blog/hollowtrees)
+
 ### Quick start
 
 Building the project is as simple as running a go build command. The result is a statically linked executable binary.
