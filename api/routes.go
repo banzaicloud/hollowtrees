@@ -25,10 +25,18 @@ func NewRouter(collector *engine.Collector) *Router {
 
 func ConfigureRoutes(engine *gin.Engine, router *Router) {
 	log.Info("configuring routes")
+	base := engine.Group("/")
+	{
+		base.GET("/health", router.health)
+	}
 	v1 := engine.Group("/api/v1/")
 	{
 		v1.POST("/alerts", router.handleAlert)
 	}
+}
+
+func (r *Router) health(c *gin.Context) {
+	c.JSON(http.StatusOK, "ok")
 }
 
 func (r *Router) handleAlert(c *gin.Context) {
