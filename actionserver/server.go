@@ -55,11 +55,11 @@ func (as *actionServer) register(ah AlertHandler) {
 }
 
 // Serve : registers the AlertHandler and starts the GRPC server
-func Serve(port int, ah AlertHandler) {
+func Serve(bindAddress string, ah AlertHandler) {
 	as := newServer()
 	as.register(ah)
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	lis, err := net.Listen("tcp", bindAddress)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
