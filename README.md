@@ -19,7 +19,7 @@ go build .
 
 Configuration of the project is done through a YAML config file. An example for that can be found under conf/config.yaml.example
 
-### Quick architecture ovewrview
+### Quick architecture overview
 
 >For an introduction and overview of the architecture please read the following blog [post](https://banzaicloud.com/blog/hollowtrees)
 
