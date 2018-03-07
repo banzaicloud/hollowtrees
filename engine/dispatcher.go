@@ -1,22 +1,19 @@
 package engine
 
 import (
-	"context"
-
 	"github.com/banzaicloud/hollowtrees/action"
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/engine/types"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 type Dispatcher struct {
-	Plugins  types.Plugins
+	Plugins  Plugins
 	Rules    types.Rules
 	Requests chan action.AlertEvent
 }
 
-func NewDispatcher(plugins types.Plugins, rules types.Rules, requests chan action.AlertEvent) *Dispatcher {
+func NewDispatcher(plugins Plugins, rules types.Rules, requests chan action.AlertEvent) *Dispatcher {
 	return &Dispatcher{
 		Plugins:  plugins,
 		Rules:    rules,
@@ -37,20 +34,10 @@ func (d *Dispatcher) Start() {
 			case event := <-d.Requests:
 				log.WithField("eventId", event.EventId).Infof("Dispatcher received event")
 				go func() {
-					addresses := d.SelectPlugins(event)
-					for _, a := range addresses {
-						// send only if all plugins are available?
-						log.WithField("eventId", event.EventId).Infof("Sending event to plugin address: %s", a)
-						conn, err := grpc.Dial(a, grpc.WithInsecure())
-						if err != nil {
-							log.Fatalf("couldn't create GRPC channel to action server: %v", err)
-						}
-						client := action.NewActionClient(conn)
-						_, err = client.HandleAlert(context.Background(), &event)
-						if err != nil {
-							log.WithField("eventId", event.EventId).Errorf("Failed to handle alert: %v", err)
-						}
-						conn.Close()
+					plugins := d.SelectPlugins(event)
+					for _, p := range plugins {
+						log.WithField("eventId", event.EventId).Infof("Sending event to plugin: %v", p)
+						p.exec(event)
 					}
 				}()
 			}
@@ -71,7 +58,7 @@ func (d *Dispatcher) ValidateRules() {
 
 func (d *Dispatcher) containsPlugin(name string) bool {
 	for _, p := range d.Plugins {
-		if p.Name == name {
+		if p.name() == name {
 			return true
 		}
 	}
@@ -79,8 +66,7 @@ func (d *Dispatcher) containsPlugin(name string) bool {
 }
 
 // TODO: unit test
-func (d *Dispatcher) SelectPlugins(event action.AlertEvent) []string {
-	var addresses []string
+func (d *Dispatcher) SelectPlugins(event action.AlertEvent) (plugins Plugins) {
 	for _, r := range d.Rules {
 		if r.EventType == event.EventType {
 			matchesAll := true
@@ -93,13 +79,13 @@ func (d *Dispatcher) SelectPlugins(event action.AlertEvent) []string {
 				log.WithField("eventId", event.EventId).Infof("Matching rule found for event: %s", r.Name)
 				for _, pn := range r.Plugins {
 					for _, p := range d.Plugins {
-						if p.Name == pn {
-							addresses = append(addresses, p.Address)
+						if p.name() == pn {
+							plugins = append(plugins, p)
 						}
 					}
 				}
 			}
 		}
 	}
-	return addresses
+	return
 }
