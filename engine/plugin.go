@@ -1,7 +1,15 @@
 package engine
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/url"
+	"path"
 
 	"github.com/banzaicloud/hollowtrees/action"
 	"github.com/banzaicloud/hollowtrees/conf"
@@ -10,7 +18,7 @@ import (
 
 type Plugin interface {
 	name() string
-	exec(event action.AlertEvent)
+	exec(event action.AlertEvent) error
 }
 
 func NewPlugin(pc conf.PluginConfig) Plugin {
@@ -51,17 +59,20 @@ type GrpcPlugin struct {
 	PluginBase
 }
 
-func (p *GrpcPlugin) exec(event action.AlertEvent) {
+func (p *GrpcPlugin) exec(event action.AlertEvent) error {
 	conn, err := grpc.Dial(p.Address, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("couldn't create GRPC channel to action server: %v", err)
+		log.Errorf("couldn't create GRPC channel to action server: %v", err)
+		return err
 	}
 	client := action.NewActionClient(conn)
 	_, err = client.HandleAlert(context.Background(), &event)
 	if err != nil {
 		log.WithField("eventId", event.EventId).Errorf("Failed to handle alert: %v", err)
+		return err
 	}
 	conn.Close()
+	return nil
 }
 
 type FnPlugin struct {
@@ -70,6 +81,59 @@ type FnPlugin struct {
 	Function string
 }
 
-func (p *FnPlugin) exec(event action.AlertEvent) {
-	// TODO
+type asyncResponse struct {
+	CallID string  `json:"call_id"`
+	Err    fnError `json:"error"`
+}
+
+type fnError struct {
+	Message string `json:"message"`
+}
+
+func (p *FnPlugin) exec(event action.AlertEvent) error {
+	u := url.URL{Scheme: "http", Host: p.Address}
+	u.Path = path.Join(u.Path, "r", p.App, p.Function)
+
+	b, err := json.Marshal(event.Data)
+	if err != nil {
+		return err
+	}
+
+	// TODO: authentication if needed
+	resp, err := http.Post(u.String(), "application/json", bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 200 {
+		// this is a sync function's response
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		log.Infof("sync fn function completed, call id: %s, response body: %s", resp.Header["Fn_call_id"][0], string(body))
+	} else if resp.StatusCode == 202 {
+		// this is an async function's response
+		r := &asyncResponse{}
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(body, r)
+		if err != nil {
+			return err
+		}
+		if r.CallID != "" {
+			log.Infof("async fn function submitted, call id: %s", r.CallID)
+		} else if r.Err.Message != "" {
+			return errors.New(r.Err.Message)
+		} else {
+			return fmt.Errorf("couldn't parse response body returned by the async function: %s", body)
+		}
+	} else {
+		return fmt.Errorf("fn server returned status code %d, expected 200 or 202", resp.StatusCode)
+	}
+
+	return nil
 }

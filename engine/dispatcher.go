@@ -32,12 +32,16 @@ func (d *Dispatcher) Start() {
 		for {
 			select {
 			case event := <-d.Requests:
-				log.WithField("eventId", event.EventId).Infof("Dispatcher received event")
+				log.WithField("eventId", event.EventId).Infof("Dispatcher received event: %#v", event)
 				go func() {
 					plugins := d.SelectPlugins(event)
+					log.WithField("eventId", event.EventId).Debugf("plugins selected for event: %#v", plugins)
 					for _, p := range plugins {
-						log.WithField("eventId", event.EventId).Infof("Sending event to plugin: %v", p)
-						p.exec(event)
+						log.WithField("eventId", event.EventId).Infof("Sending event to plugin: %#v", p)
+						err := p.exec(event)
+						if err != nil {
+							log.WithField("eventId", event.EventId).Errorf("failed to execute plugin %s for event: %v", p.name(), err)
+						}
 					}
 				}()
 			}
