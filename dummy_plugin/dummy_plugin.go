@@ -22,5 +22,5 @@ func (d *DummyAlertHandler) Handle(event *as.AlertEvent) (*as.ActionResult, erro
 
 func main() {
 	fmt.Println("Starting Hollowtrees ActionServer")
-	as.Serve(newDummyAlertHandler())
+	as.Serve(":9093", newDummyAlertHandler())
 }
