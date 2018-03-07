@@ -18,6 +18,9 @@ all: clean deps fmt vet docker push
 clean:
 	go clean -i ./...
 
+build:
+	go build .
+
 deps:
 	go get ./...
 
