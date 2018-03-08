@@ -13,13 +13,6 @@ type Alert struct {
 	GeneratorURL string            `json:"generatorURL"`
 }
 
-type Plugin struct {
-	Name    string `mapstructure:"name"`
-	Address string `mapstructure:"address"`
-}
-
-type Plugins []Plugin
-
 type Rule struct {
 	Name        string            `mapstructure:"name"`
 	Description string            `mapstructure:"description"`
@@ -29,14 +22,6 @@ type Rule struct {
 }
 
 type Rules []Rule
-
-func (p Plugins) String() string {
-	var result string
-	for _, plugin := range p {
-		result += fmt.Sprintf("\n - %s (%s)", plugin.Name, plugin.Address)
-	}
-	return result
-}
 
 func (r Rules) String() string {
 	var result string

@@ -23,7 +23,13 @@ func main() {
 
 	poolRequestChan := make(chan action.AlertEvent, bufferSize)
 
-	engine.NewDispatcher(conf.ReadPlugins(), conf.ReadRules(), poolRequestChan).Start()
+	pluginConfigs := conf.ReadPlugins()
+	plugins := make(engine.Plugins, len(pluginConfigs))
+	for i, p := range pluginConfigs {
+		plugins[i] = engine.NewPlugin(p)
+	}
+
+	engine.NewDispatcher(plugins, conf.ReadRules(), poolRequestChan).Start()
 	collector := engine.NewCollector(poolRequestChan)
 
 	apiEngine := gin.Default()

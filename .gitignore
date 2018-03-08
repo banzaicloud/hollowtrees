@@ -6,6 +6,6 @@ bin/*
 hollowtrees.iml
 .hollowtrees
 hollowtrees
-conf/config.toml
+conf/config.yaml
 *.swp
 dummy_plugin/dummy_plugin
