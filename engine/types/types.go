@@ -13,29 +13,30 @@ type Alert struct {
 	GeneratorURL string            `json:"generatorURL"`
 }
 
-type Rule struct {
-	Name        string            `mapstructure:"name"`
-	Description string            `mapstructure:"description"`
-	EventType   string            `mapstructure:"event_type"`
-	Plugins     []string          `mapstructure:"action_plugins"`
-	Match       map[string]string `mapstructure:"match"`
+type ActionFlow struct {
+	Name            string            `mapstructure:"name"`
+	Description     string            `mapstructure:"description"`
+	EventType       string            `mapstructure:"event_type"`
+	ConcurrentFlows int               `mapstructure:"concurrent_flows"`
+	Plugins         []string          `mapstructure:"action_plugins"`
+	Match           map[string]string `mapstructure:"match"`
 }
 
-type Rules []Rule
+type ActionFlows []*ActionFlow
 
-func (r Rules) String() string {
+func (a ActionFlows) String() string {
 	var result string
-	for _, rule := range r {
-		result += fmt.Sprintf("\n- Name: %s", rule.Name)
-		result += fmt.Sprintf("\n  Description: %s", rule.Description)
-		result += fmt.Sprintf("\n  EventType: %s", rule.EventType)
+	for _, af := range a {
+		result += fmt.Sprintf("\n- Name: %s", af.Name)
+		result += fmt.Sprintf("\n  Description: %s", af.Description)
+		result += fmt.Sprintf("\n  EventType: %s", af.EventType)
 		result += fmt.Sprintf("\n  Plugins:")
-		for _, p := range rule.Plugins {
+		for _, p := range af.Plugins {
 			result += fmt.Sprintf("\n  - %s", p)
 		}
-		if len(rule.Match) > 0 {
+		if len(af.Match) > 0 {
 			result += fmt.Sprintf("\n  Match:")
-			for k, v := range rule.Match {
+			for k, v := range af.Match {
 				result += fmt.Sprintf("\n  - %s = %s", k, v)
 			}
 		}

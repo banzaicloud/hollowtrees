@@ -47,17 +47,17 @@ There are a few default Hollowtrees node exporters associated to alerts:
 * AWS spot instance termination [collector](https://github.com/banzaicloud/spot-termination-collector)
 * AWS autoscaling group [exporter](https://github.com/banzaicloud/aws-autoscaling-exporter)
 
-### Configuring rules
+### Configuring action flows
 
-After a Prometheus alert is received by Hollowtrees, it first converts it to an event that complies to the [OpenEvents](https://openevents.io) specification, then it processes it based on the rules configured in the `config.yaml` file, and sends events to its configured action plugins. An example configuration can be found in `conf/config.yaml.example` under `action_plugin` and `rules`.
+After a Prometheus alert is received by Hollowtrees, it first converts it to an event that complies to the [OpenEvents](https://openevents.io) specification, then it processes it based on the action flows configured in the `config.yaml` file, and sends events to its configured action plugins. An example configuration can be found in `conf/config.yaml.example` under `action_plugin` and `action flows`.
 
 Hollowtrees uses gRPC to send events to its action plugins, and calls the action plugins sequentially. This very simple rule engine will probably change once Hollowtrees will have a release and will support different calling mechanisms, and passing of configuration parameters to the plugins.
 
-Alerts coming from Prometheus are converted to events with an event_type of `prometheus.server.alert.<AlertName>`. Prometheus labels are converted to the `data` payload. Data payload elements can be used in the rules to forward events to the plugins only when it matches a specific string.
+Alerts coming from Prometheus are converted to events with an event_type of `prometheus.server.alert.<AlertName>`. Prometheus labels are converted to the `data` payload. Data payload elements can be used in the action flows to forward events to the plugins only when it matches a specific string.
 
 #### Batteries included 
 
-There are a few default Hollowtrees rules available:
+There are a few default Hollowtrees action flows available:
 
 * AWS Spot Instance [recommender](https://github.com/banzaicloud/spot-recommender)
 

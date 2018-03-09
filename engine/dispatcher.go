@@ -8,16 +8,23 @@ import (
 )
 
 type Dispatcher struct {
-	Plugins  Plugins
-	Rules    types.Rules
-	Requests chan action.AlertEvent
+	Plugins           Plugins
+	ActionFlows       types.ActionFlows
+	Requests          chan action.AlertEvent
+	ConcurrencyLimits map[string]chan bool
 }
 
-func NewDispatcher(plugins Plugins, rules types.Rules, requests chan action.AlertEvent) *Dispatcher {
+func NewDispatcher(plugins Plugins, actionFlows types.ActionFlows, requests chan action.AlertEvent) *Dispatcher {
+	validateFlows(actionFlows, plugins)
+	cl := make(map[string]chan bool, len(actionFlows))
+	for _, af := range actionFlows {
+		cl[af.EventType] = make(chan bool, af.ConcurrentFlows)
+	}
 	return &Dispatcher{
-		Plugins:  plugins,
-		Rules:    rules,
-		Requests: requests,
+		Plugins:           plugins,
+		ActionFlows:       actionFlows,
+		Requests:          requests,
+		ConcurrencyLimits: cl,
 	}
 }
 
@@ -26,42 +33,58 @@ var log *logrus.Entry
 func (d *Dispatcher) Start() {
 	log = conf.Logger().WithField("package", "engine")
 	go func() {
-		d.ValidateRules()
 		log.Infof("Plugins configured: %v", d.Plugins)
-		log.Infof("Rules configured: %v", d.Rules)
+		log.Infof("ActionFlows configured: %v", d.ActionFlows)
 		for {
 			select {
 			case event := <-d.Requests:
 				log.WithField("eventId", event.EventId).Infof("Dispatcher received event: %#v", event)
-				go func() {
-					plugins := d.SelectPlugins(event)
-					log.WithField("eventId", event.EventId).Debugf("plugins selected for event: %#v", plugins)
-					for _, p := range plugins {
-						log.WithField("eventId", event.EventId).Infof("Sending event to plugin: %#v", p)
-						err := p.exec(event)
-						if err != nil {
-							log.WithField("eventId", event.EventId).Errorf("failed to execute plugin %s for event: %v", p.name(), err)
-						}
-					}
-				}()
+				flow := d.SelectActionFlow(event)
+				if flow == nil {
+					log.Infof("no matching action flow found for event %s", event.EventId)
+					continue
+				}
+				sem := d.ConcurrencyLimits[event.EventType]
+				go func(flow *types.ActionFlow, sem chan bool) {
+					sem <- true
+					d.executeActionFlow(flow, event)
+					<-sem
+				}(flow, sem)
 			}
 		}
 	}()
 }
+func (d *Dispatcher) executeActionFlow(flow *types.ActionFlow, event action.AlertEvent) {
+	var plugins []Plugin
+	for _, pn := range flow.Plugins {
+		for _, p := range d.Plugins {
+			if p.name() == pn {
+				plugins = append(plugins, p)
+			}
+		}
+	}
+	log.WithField("eventId", event.EventId).Debugf("plugins selected for event: %#v", plugins)
+	for _, p := range plugins {
+		log.WithField("eventId", event.EventId).Infof("Sending event to plugin: %#v", p)
+		err := p.exec(event)
+		if err != nil {
+			log.WithField("eventId", event.EventId).Errorf("failed to execute plugin %s for event: %v", p.name(), err)
+		}
+	}
+}
 
-// TODO: unit test
-func (d *Dispatcher) ValidateRules() {
-	for _, rule := range d.Rules {
-		for _, plugin := range rule.Plugins {
-			if !d.containsPlugin(plugin) {
-				log.Fatalf("Invalid plugin ('%s') configured in rule '%s'", plugin, rule.Name)
+func validateFlows(actionFlows types.ActionFlows, plugins Plugins) {
+	for _, af := range actionFlows {
+		for _, plugin := range af.Plugins {
+			if !containsPlugin(plugins, plugin) {
+				log.Fatalf("Invalid plugin ('%s') configured in action flow '%s'", plugin, af.Name)
 			}
 		}
 	}
 }
 
-func (d *Dispatcher) containsPlugin(name string) bool {
-	for _, p := range d.Plugins {
+func containsPlugin(plugins Plugins, name string) bool {
+	for _, p := range plugins {
 		if p.name() == name {
 			return true
 		}
@@ -69,27 +92,20 @@ func (d *Dispatcher) containsPlugin(name string) bool {
 	return false
 }
 
-// TODO: unit test
-func (d *Dispatcher) SelectPlugins(event action.AlertEvent) (plugins Plugins) {
-	for _, r := range d.Rules {
-		if r.EventType == event.EventType {
+func (d *Dispatcher) SelectActionFlow(event action.AlertEvent) *types.ActionFlow {
+	for _, af := range d.ActionFlows {
+		if af.EventType == event.EventType {
 			matchesAll := true
-			for matchKey, matchValue := range r.Match {
+			for matchKey, matchValue := range af.Match {
 				if dataValue, ok := event.Data[matchKey]; !ok || dataValue != matchValue {
 					matchesAll = false
 				}
 			}
 			if matchesAll {
-				log.WithField("eventId", event.EventId).Infof("Matching rule found for event: %s", r.Name)
-				for _, pn := range r.Plugins {
-					for _, p := range d.Plugins {
-						if p.name() == pn {
-							plugins = append(plugins, p)
-						}
-					}
-				}
+				log.WithField("eventId", event.EventId).Infof("Matching action flow found for event: %s", af.Name)
+				return af
 			}
 		}
 	}
-	return
+	return nil
 }
