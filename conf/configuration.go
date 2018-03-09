@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/banzaicloud/hollowtrees/engine/types"
+	"github.com/patrickmn/go-cache"
 	"github.com/spf13/viper"
 )
 
@@ -72,6 +73,9 @@ func ReadActionFlows() types.ActionFlows {
 	for i := range afs {
 		if afs[i].ConcurrentFlows == 0 {
 			afs[i].ConcurrentFlows = viper.GetInt("global.defaultActionFlowConcurrency")
+		}
+		if afs[i].RepeatCooldown <= 0 {
+			afs[i].RepeatCooldown = cache.NoExpiration
 		}
 	}
 	return afs

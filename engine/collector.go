@@ -21,7 +21,7 @@ func NewCollector(requests chan action.AlertEvent) *Collector {
 func (c *Collector) Collect(alerts []types.Alert) {
 	for _, alert := range alerts {
 		event := c.Convert(alert)
-		log.WithField("eventId", event.EventId).Infof("Pushing event to queue: %#v", event)
+		log.WithField("eventId", event.EventId).Debugf("Pushing event to queue: %#v", event)
 		c.Requests <- *event
 	}
 }
