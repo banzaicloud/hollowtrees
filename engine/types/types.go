@@ -18,6 +18,7 @@ type ActionFlow struct {
 	Description     string            `mapstructure:"description"`
 	EventType       string            `mapstructure:"event_type"`
 	ConcurrentFlows int               `mapstructure:"concurrent_flows"`
+	Cooldown        time.Duration     `mapstructure:"cooldown"`
 	Plugins         []string          `mapstructure:"action_plugins"`
 	Match           map[string]string `mapstructure:"match"`
 }
@@ -29,7 +30,9 @@ func (a ActionFlows) String() string {
 	for _, af := range a {
 		result += fmt.Sprintf("\n- Name: %s", af.Name)
 		result += fmt.Sprintf("\n  Description: %s", af.Description)
-		result += fmt.Sprintf("\n  EventType: %s", af.EventType)
+		result += fmt.Sprintf("\n  Event Type: %s", af.EventType)
+		result += fmt.Sprintf("\n  Concurrent Flows: %d", af.ConcurrentFlows)
+		result += fmt.Sprintf("\n  Cooldown: %v", af.Cooldown)
 		result += fmt.Sprintf("\n  Plugins:")
 		for _, p := range af.Plugins {
 			result += fmt.Sprintf("\n  - %s", p)

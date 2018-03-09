@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"time"
+
 	"github.com/banzaicloud/hollowtrees/action"
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/engine/types"
@@ -69,7 +71,14 @@ func (d *Dispatcher) executeActionFlow(flow *types.ActionFlow, event action.Aler
 		err := p.exec(event)
 		if err != nil {
 			log.WithField("eventId", event.EventId).Errorf("failed to execute plugin %s for event: %v", p.name(), err)
+			return
 		}
+	}
+	if flow.Cooldown > 0 {
+		log.Infof("Starting cooldown: %v", flow.Cooldown)
+		timer := time.NewTimer(flow.Cooldown)
+		<-timer.C
+		log.Infof("Cooldown finished")
 	}
 }
 
