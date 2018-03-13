@@ -8,29 +8,34 @@ log:
   level: "debug"
 
 action_plugins:
-  - name: "ht-k8s-action-plugin"
-    address: "localhost:8887"
+  - name: "dummy-plugin-1"
+    address: "localhost:9093"
+    type: "grpc"
 
-  - name: "ht-aws-asg-action-plugin"
-    address: "localhost:8888"
+  - name: "dummy-plugin-2"
+    address: "localhost:9093"
+    type: "grpc"
 
 
 action_flows:
-  - name: "spot_to_drainer"
-    description: "spot to k8s drainer"
-    event_type: "prometheus.server.alert.SpotTerminationNotice"
-    concurrent_flows: 10
+  - name: "simple_flow"
+    description: "simple dummy flow"
+    event_type: "prometheus.server.alert.DummyTestAlert1"
     action_plugins:
-      - "ht-k8s-action-plugin"
-      - "ht-aws-asg-action-plugin"
-    match:
-      - cluster_name: "marton-cluster"
+      - "dummy-plugin-1"
 
-  - name: "spot_rebalance"
-    description: "price alert to asg rebalance"
-    event_type: "prometheus.server.alert.SpotInstanceTooExpensive"
+  - name: "advanced_flow"
+    description: "dummy flow that limits concurrency, has flow cooldown, repeat cooldown, retries and grouping configured"
+    event_type: "prometheus.server.alert.DummyTestAlert2"
     concurrent_flows: 2
+    flow_cooldown: 1m
+    repeat_cooldown: 5m
+    retries: 5
+    group_by:
+      - "cluster_name"
+      - "instance_id"
     action_plugins:
-      - "ht-aws-asg-action-plugin"
+      - "dummy-plugin-1"
+      - "dummy-plugin-2"
     match:
-      - asg_name: "marci-test"
+      - cluster_name: "test-cluster"
