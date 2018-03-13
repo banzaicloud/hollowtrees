@@ -8,7 +8,6 @@ import (
 	"github.com/banzaicloud/hollowtrees/action"
 	"github.com/banzaicloud/hollowtrees/conf"
 	"github.com/banzaicloud/hollowtrees/engine/types"
-	"github.com/patrickmn/go-cache"
 	"github.com/sirupsen/logrus"
 )
 
@@ -17,7 +16,7 @@ type Dispatcher struct {
 	ActionFlows       types.ActionFlows
 	Requests          chan action.AlertEvent
 	ConcurrencyLimits map[string]chan bool
-	AlertCache        *cache.Cache
+	FlowStore         FlowStore
 	mux               sync.Mutex
 }
 
@@ -32,7 +31,7 @@ func NewDispatcher(plugins Plugins, actionFlows types.ActionFlows, requests chan
 		ActionFlows:       actionFlows,
 		Requests:          requests,
 		ConcurrencyLimits: cl,
-		AlertCache:        cache.New(5*time.Minute, 1*time.Minute),
+		FlowStore:         NewInMemFlowStore(),
 	}
 }
 
@@ -58,29 +57,35 @@ func (d *Dispatcher) Start() {
 					log.Infof("no matching action flow found for event %s", event.EventId)
 					continue
 				}
-				if len(flow.GroupBy) > 0 { // if there's no grouping, every alert is processed
+				if len(flow.GroupBy) > 0 { // if there's no grouping, every alert is processed without storing them
 					key := getEventKey(event, flow.GroupBy)
 					log.WithField("eventId", event.EventId).Debugf("cache key is %s", key)
 					d.mux.Lock()
 					attempts := 1
-					if afs, ok := d.AlertCache.Get(key); ok {
-						a := afs.(ActionFlowState)
-						log.Info(a)
-						if a.status != "failed" || a.tries >= flow.Retries {
+					afs, err := d.FlowStore.getState(key)
+					if err != nil {
+						log.WithField("eventId", afs.eventId).Errorf("couldn't get flow state, event won't be processed")
+						continue
+					}
+					if afs != nil {
+						if afs.status != "failed" || afs.tries >= flow.Retries {
 							// won't process event, it's thrown away
-							log.WithField("eventId", a.eventId).Debugf("%s is already processed", key)
+							log.WithField("eventId", afs.eventId).Debugf("%s is already processed", key)
 							d.mux.Unlock()
 							continue
 						}
-						attempts = a.tries + 1
+						attempts = afs.tries + 1
 					}
-					afs := ActionFlowState{
+					afs = &ActionFlowState{
 						eventId: event.EventId,
 						status:  "in-progress",
 						tries:   attempts,
 					}
-					d.AlertCache.Set(key, afs, flow.RepeatCooldown)
-					log.WithField("eventId", event.EventId).Debugf("put %s=%s in cache", key, afs)
+					if err := d.FlowStore.setState(key, afs, flow.RepeatCooldown); err != nil {
+						log.WithField("eventId", afs.eventId).Errorf("couldn't store flow state, event won't be processed")
+						continue
+					}
+					log.WithField("eventId", event.EventId).Debugf("put %s=%v in cache", key, *afs)
 					d.mux.Unlock()
 				}
 				sem := d.ConcurrencyLimits[event.EventType]
@@ -94,12 +99,15 @@ func (d *Dispatcher) Start() {
 					}
 					if len(flow.GroupBy) > 0 {
 						key := getEventKey(event, flow.GroupBy)
-						if afs, ok := d.AlertCache.Get(key); ok {
-							a := afs.(ActionFlowState)
-							a.status = s
-							d.AlertCache.Set(key, a, flow.RepeatCooldown)
+						afs, err := d.FlowStore.getState(key)
+						if err != nil {
+							log.WithField("eventId", afs.eventId).Errorf("couldn't store flow state")
+						} else if afs != nil {
+							afs.status = s
+							if err := d.FlowStore.setState(key, afs, flow.RepeatCooldown); err != nil {
+								log.WithField("eventId", afs.eventId).Errorf("couldn't store flow state")
+							}
 						} else {
-							// it shouldn't happen
 							log.WithField("eventId", event.EventId).Errorf("couldn't find flow in cache: %v", err)
 						}
 					}
@@ -109,6 +117,7 @@ func (d *Dispatcher) Start() {
 		}
 	}()
 }
+
 func getEventKey(event action.AlertEvent, groupBy []string) string {
 	key := event.EventType
 	for _, g := range groupBy {
