@@ -51,7 +51,7 @@ func (r *Router) handleAlert(c *gin.Context) {
 		return
 	}
 
-	log.Infof("Received alerts: %#v", alerts)
+	log.Debugf("Received alerts: %#v", alerts)
 	r.Collector.Collect(alerts)
 	c.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "data": "ok"})
 }

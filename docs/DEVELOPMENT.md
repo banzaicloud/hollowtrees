@@ -63,7 +63,7 @@ curl -X POST -d @alert.json localhost:9092/api/v1/alerts
 
 #### Setting up an action flow for Hollowtrees
 
-Here's an example rule that describes an action flow that can be triggered with the above JSON:
+Here's an example config snippet that describes an action flow that can be triggered with the above JSON:
 
 ```
 - name: "test_flow"

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/banzaicloud/hollowtrees/engine/types"
+	"github.com/patrickmn/go-cache"
 	"github.com/spf13/viper"
 )
 
@@ -44,6 +45,7 @@ func Init() {
 	viper.AutomaticEnv()
 
 	viper.SetDefault("global.bufferSize", 100)
+	viper.SetDefault("global.defaultActionFlowConcurrency", 10)
 	viper.SetDefault("global.bindAddr", ":9091")
 }
 
@@ -53,15 +55,28 @@ func ReadPlugins() PluginConfigs {
 	if err != nil {
 		log.Fatalf("couldn't parse plugins config, %v", err)
 	}
+	for _, p := range plugins {
+		if p.Type == "" {
+			log.Fatalf("couldn't parse plugins config, plugin type is required [grpc/fn]: %s", p.Name)
+		}
+	}
 	// TODO: validate plugin type/properties
 	return plugins
 }
 
-func ReadRules() types.Rules {
-	var rules types.Rules
-	err := viper.UnmarshalKey("rules", &rules)
+func ReadActionFlows() types.ActionFlows {
+	var afs types.ActionFlows
+	err := viper.UnmarshalKey("action_flows", &afs)
 	if err != nil {
-		log.Fatalf("couldn't parse rules config, %v", err)
+		log.Fatalf("couldn't parse action flows config, %v", err)
 	}
-	return rules
+	for i := range afs {
+		if afs[i].ConcurrentFlows == 0 {
+			afs[i].ConcurrentFlows = viper.GetInt("global.defaultActionFlowConcurrency")
+		}
+		if afs[i].RepeatCooldown <= 0 {
+			afs[i].RepeatCooldown = cache.NoExpiration
+		}
+	}
+	return afs
 }

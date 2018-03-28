@@ -29,7 +29,7 @@ func main() {
 		plugins[i] = engine.NewPlugin(p)
 	}
 
-	engine.NewDispatcher(plugins, conf.ReadRules(), poolRequestChan).Start()
+	engine.NewDispatcher(plugins, conf.ReadActionFlows(), poolRequestChan).Start()
 	collector := engine.NewCollector(poolRequestChan)
 
 	apiEngine := gin.Default()

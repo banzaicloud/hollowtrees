@@ -47,17 +47,25 @@ There are a few default Hollowtrees node exporters associated to alerts:
 * AWS spot instance termination [collector](https://github.com/banzaicloud/spot-termination-collector)
 * AWS autoscaling group [exporter](https://github.com/banzaicloud/aws-autoscaling-exporter)
 
-### Configuring rules
+### Configuring action flows
 
-After a Prometheus alert is received by Hollowtrees, it first converts it to an event that complies to the [OpenEvents](https://openevents.io) specification, then it processes it based on the rules configured in the `config.yaml` file, and sends events to its configured action plugins. An example configuration can be found in `conf/config.yaml.example` under `action_plugin` and `rules`.
+After a Prometheus alert is received by Hollowtrees, it first converts it to an event that complies to the [OpenEvents](https://openevents.io) specification, then it processes it based on the action flows configured in the `config.yaml` file, and sends events to its configured action plugins. An example configuration can be found in `conf/config.yaml.example` under `action_plugin` and `action flows`.
 
 Hollowtrees uses gRPC to send events to its action plugins, and calls the action plugins sequentially. This very simple rule engine will probably change once Hollowtrees will have a release and will support different calling mechanisms, and passing of configuration parameters to the plugins.
 
-Alerts coming from Prometheus are converted to events with an event_type of `prometheus.server.alert.<AlertName>`. Prometheus labels are converted to the `data` payload. Data payload elements can be used in the rules to forward events to the plugins only when it matches a specific string.
+Alerts coming from Prometheus are converted to events with an event_type of `prometheus.server.alert.<AlertName>`. Prometheus labels are converted to the `data` payload. Data payload elements can be used in the action flows to forward events to the plugins only when it matches a specific string.
+
+#### Advanced control structures in action flows
+
+* `concurrent_flows`: number of allowed concurrent action flows running of the same *event type* (e.g.: if an alert is firing for a large number of instances at the same time, but we shouldn't touch all these instances in the cluster at once)
+* `flow_cooldown`: Cooldown time that passes after an action flow is successfully finished. Use it in conjunction with the concurrency limits - during the cooldown the action flow is considered `in progress`. Format: golang time, e.g.: `5m30s`
+* `group_by`: Categorizes subsequent events as the same, if all the corresponding values of these attributes match. Use it with the below 2 properties. (e.g.: alerts coming in with the same `instance_id` attribute for a specific event type can be considered the *same*)
+* `repeat_cooldown`: Cooldown time that must pass before an action flow can be repeated for the *same* event. Format: golang time, e.g.: `1h30m`
+* `retries`: Number of retries if an action flow fails for a specific event.
 
 #### Batteries included 
 
-There are a few default Hollowtrees rules available:
+There are a few default Hollowtrees action flows available:
 
 * AWS Spot Instance [recommender](https://github.com/banzaicloud/spot-recommender)
 
