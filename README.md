@@ -67,7 +67,7 @@ Alerts coming from Prometheus are converted to events with an event_type of `pro
 
 There are a few default Hollowtrees action flows available:
 
-* AWS Spot Instance [recommender](https://github.com/banzaicloud/spot-recommender)
+* AWS Spot Cluster [recommender](https://github.com/banzaicloud/cluster-recommender)
 
 ### Action plugins
 
