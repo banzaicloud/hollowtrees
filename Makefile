@@ -39,3 +39,6 @@ push:
 run-dev:
 	. .env
 	go run $(wildcard *.go)
+
+clean-vendor:
+	find -L ./vendor -type l | xargs rm -rf
