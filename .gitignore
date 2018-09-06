@@ -9,3 +9,5 @@ hollowtrees
 conf/config.yaml
 *.swp
 dummy_plugin/dummy_plugin
+/vendor/
+/.licensei.cache
