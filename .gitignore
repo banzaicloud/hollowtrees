@@ -1,8 +1,6 @@
 _state*
-.idea*
 .DS_Store
 bin/*
-.idea/
 hollowtrees.iml
 .hollowtrees
 hollowtrees
@@ -11,3 +9,13 @@ conf/config.yaml
 dummy_plugin/dummy_plugin
 /vendor/
 /.licensei.cache
+
+# IDE integration
+/.idea/*
+!/.idea/copyright/
+!/.idea/*.iml
+!/.idea/externalDependencies.xml
+!/.idea/go.imports.xml
+!/.idea/modules.xml
+!/.idea/runConfigurations/
+!/.idea/scopes/
