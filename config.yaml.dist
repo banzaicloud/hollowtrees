@@ -1,0 +1,32 @@
+# logger settings
+log:
+  format: "logfmt"
+  level: "debug"
+
+# action plugins
+plugins:
+  - name: "dummy-plugin-1"
+    address: "localhost:9091"
+    type: "grpc"
+
+  - name: "dummy-plugin-2"
+    address: "localhost:9091"
+    type: "grpc"
+
+# action flows
+flows:
+  simple:
+    name: "Simple Flow"
+    description: "simple dummy flow"
+    allowedEvents:
+    - "prometheus.server.alert.TestAlert"
+    - "prometheus.server.alert.DummyTestAlert2"
+    plugins:
+    - "internal-demo"
+    - "dummy-plugin-1"
+    cooldown: 1m
+    groupBy:
+    - cluster_name
+    - instance_id
+    filters:
+    - cluster_name: "test-cluster"
