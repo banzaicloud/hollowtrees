@@ -17,8 +17,7 @@ package flows
 import (
 	"time"
 
-	_ "github.com/karlseguin/ccache"
-	ccache "github.com/patrickmn/go-cache"
+	cache "github.com/patrickmn/go-cache"
 )
 
 type FlowStore interface {
@@ -28,12 +27,12 @@ type FlowStore interface {
 }
 
 type InMemoryFlowStore struct {
-	EventFlowCache *ccache.Cache
+	EventFlowCache *cache.Cache
 }
 
 func NewInMemFlowStore() *InMemoryFlowStore {
 	return &InMemoryFlowStore{
-		EventFlowCache: ccache.New(time.Duration(10)*time.Minute, time.Duration(1)*time.Minute),
+		EventFlowCache: cache.New(time.Duration(10)*time.Minute, time.Duration(1)*time.Minute),
 	}
 }
 
