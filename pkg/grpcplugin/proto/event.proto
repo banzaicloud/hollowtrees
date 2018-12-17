@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.banzaicloud.hollowtrees.handleEvent";
+option java_outer_classname = "HandleEventProto";
+
+package proto;
+
+service EventHandler {
+    rpc Handle (CloudEvent) returns (Result) {}
+}
+
+message CloudEvent {
+    string specversion = 1;
+    string type = 2;
+    string source = 3;
+    string id = 4;
+    string time = 5;
+    string schemaurl = 6;
+    string contenttype = 7;
+    bytes data = 8;
+    map<string, string> extensions = 9;
+}
+
+message Result {
+    string status = 1;
+}

@@ -1,12 +1,11 @@
-_state*
-.DS_Store
-bin/*
-hollowtrees.iml
-.hollowtrees
-hollowtrees
-conf/config.yaml
-*.swp
-dummy_plugin/dummy_plugin
+/bin/
+/build/
+/config.*
+!config.yaml.dist
+/.docker/
+/docker-compose.override.yml
+/.env
+/.env.test
 /vendor/
 /.licensei.cache
 
