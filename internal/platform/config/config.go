@@ -80,6 +80,7 @@ func (c Config) Validate() error {
 
 // Configure configures some defaults in the Viper instance
 func Configure(v *viper.Viper, p *pflag.FlagSet) {
+	v.AddConfigPath("$HOME/config")
 	v.AddConfigPath(".")
 	p.Init(FriendlyServiceName, pflag.ExitOnError)
 	pflag.Usage = func() {
