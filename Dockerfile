@@ -2,7 +2,7 @@ ARG GO_VERSION=1.11
 
 FROM golang:${GO_VERSION}-alpine AS builder
 
-RUN apk add --update --no-cache ca-certificates=20171114-r3 make=4.2.1-r2 git=2.18.1-r0 curl=7.61.1-r1
+RUN apk add --update --no-cache ca-certificates=20190108-r0 make=4.2.1-r2 git=2.20.1-r0 curl=7.63.0-r0
 
 ARG PACKAGE=github.com/banzaicloud/hollowtrees
 
