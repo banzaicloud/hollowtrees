@@ -5,9 +5,13 @@ _Hollowtrees is a wave for the highest level, the pin-up centrefold for the Ment
 _Hollowtrees, a ruleset based watchguard is keeping spot instance based clusters safe and allows to use them in production.
 Handles spot price surges within one region or availability zone and reschedules applications before instances are taking down. Hollowtrees follows the "batteries included but removable" principle and has plugins for different runtimes and frameworks. At the lowest level it manages spot based clusters of virtual machines, however it contains plugins for Kubernetes, Prometheus and Pipeline as well._
 
+Hollowtrees is a core building block of the Pipeline platform. Check out the developer beta:
 <p align="center">
-  <img width="139" height="197" src="docs/images/warning.jpg">
+  <a href="https://beta.banzaicloud.io">
+  <img src="https://camo.githubusercontent.com/a487fb3128bcd1ef9fc1bf97ead8d6d6a442049a/68747470733a2f2f62616e7a6169636c6f75642e636f6d2f696d672f7472795f706970656c696e655f627574746f6e2e737667">
+  </a>
 </p>
+
 
 **Warning:** _Hollowtrees is experimental, under development and does not have a stable release yet. If in doubt, don't go out._
 
