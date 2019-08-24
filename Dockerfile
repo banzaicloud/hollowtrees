@@ -1,18 +1,19 @@
-ARG GO_VERSION=1.11
+ARG GO_VERSION=1.12
 
 FROM golang:${GO_VERSION}-alpine AS builder
 
-RUN apk add --update --no-cache ca-certificates=20190108-r0 make=4.2.1-r2 git=2.20.1-r0 curl=7.63.0-r0
+RUN apk add --update --no-cache ca-certificates=20190108-r0 make=4.2.1-r2 git=2.22.0-r0 curl=7.65.1-r0
 
-ARG PACKAGE=github.com/banzaicloud/hollowtrees
+ENV GOFLAGS="-mod=readonly"
 
-RUN mkdir -p /go/src/${PACKAGE}
-WORKDIR /go/src/${PACKAGE}
+RUN mkdir -p /build
+WORKDIR /build
 
-COPY Gopkg.* Makefile /go/src/${PACKAGE}/
-RUN make vendor
+COPY go.* /build/
+RUN go mod download
 
-COPY . /go/src/${PACKAGE}
+COPY . /build
+ENV PATH /build/bin /bin:$PATH
 RUN BUILD_DIR='' BINARY_NAME=app make build-release
 
 
