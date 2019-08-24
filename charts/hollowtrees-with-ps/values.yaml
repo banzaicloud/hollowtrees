@@ -23,6 +23,7 @@ healthcheck:
 
 promalert:
   listenPort: 8080
+  useJWTAuth: false
 
 scaler:
   name: pipeline-scaler

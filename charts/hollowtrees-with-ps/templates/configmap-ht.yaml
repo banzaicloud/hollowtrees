@@ -16,6 +16,7 @@ data:
 
     promalert:
       listenAddress: ":{{ .Values.promalert.listenPort }}"
+      useJWTAuth: {{ .Values.promalert.useJWTAuth }}
 
     plugins:
     - name: {{ .Values.scaler.name | quote }}

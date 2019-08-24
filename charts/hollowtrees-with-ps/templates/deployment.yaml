@@ -1,12 +1,9 @@
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
-  name: "{{ template "hollowtrees-with-ps.fullname" . }}"
+  name: {{ include "hollowtrees-with-ps.fullname" . }}
   labels:
-    app: "{{ template "hollowtrees-with-ps.fullname" . }}"
-    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
-    release: "{{ .Release.Name }}"
-    heritage: "{{ .Release.Service }}"
+{{ include "hollowtrees-with-ps.labels" . | indent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -27,6 +24,14 @@ spec:
       - name: "hollowtrees"
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.imagePullPolicy | quote }}
+        {{- if .Values.promalert.useJWTAuth }}
+        env:
+        - name: HT_PROMALERT_JWTSIGNINGKEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "hollowtrees-with-ps.fullname" . }}
+              key: tokenSigningKey
+        {{- end }}
         ports:
         - name: http
           containerPort: {{ .Values.promalert.listenPort }}
@@ -50,7 +55,7 @@ spec:
         {{- toYaml .Values.resources | nindent 10 }}
         volumeMounts:
         - name: config
-          mountPath: /root/config/
+          mountPath: /config/
       - name: "pipeline-scaler-plugin"
         image: "{{ .Values.htpsp.image.repository }}:{{ .Values.htpsp.image.tag }}"
         imagePullPolicy: {{ .Values.htpsp.image.imagePullPolicy | quote }}
