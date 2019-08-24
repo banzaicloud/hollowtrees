@@ -80,8 +80,8 @@ func (c Config) Validate() error {
 
 // Configure configures some defaults in the Viper instance
 func Configure(v *viper.Viper, p *pflag.FlagSet) {
-	v.AddConfigPath("$HOME/config")
 	v.AddConfigPath(".")
+	v.AddConfigPath("$HOME/config")
 	p.Init(FriendlyServiceName, pflag.ExitOnError)
 	pflag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", FriendlyServiceName)
@@ -103,4 +103,6 @@ func Configure(v *viper.Viper, p *pflag.FlagSet) {
 
 	// Prometheus alert handler
 	v.SetDefault("promalert.listenAddress", ":8081")
+	v.SetDefault("promalert.useJWTAuth", false)
+	v.SetDefault("promalert.jwtSigningKey", "")
 }

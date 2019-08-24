@@ -98,7 +98,7 @@ func main() {
 	// Starts prometheus alert manager
 	wg.Add(1)
 	go func() {
-		promalert.New(logger, errorHandler, promalert.NewEventDispatcher(eventBus)).Run(configuration.Promalert.ListenAddress)
+		promalert.New(configuration.Promalert, logger, errorHandler, promalert.NewEventDispatcher(eventBus)).Run()
 	}()
 
 	logger.Infof("%s started", config.FriendlyServiceName)
