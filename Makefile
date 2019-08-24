@@ -3,7 +3,7 @@
 # Project variables
 PACKAGE = $(shell echo $${PWD\#\#*src/})
 BINARY_NAME ?= $(shell basename $$PWD)
-DOCKER_IMAGE ?= $(shell echo ${PACKAGE} | cut -d '/' -f 2,3)
+DOCKER_IMAGE ?= banzaicloud/hollowtrees
 
 # Build variables
 BUILD_DIR ?= build
@@ -36,7 +36,7 @@ GOLANG_VERSION = 1.11
 
 .PHONY: clean
 clean: ## Clean the working area and the project
-	rm -rf bin/ ${BUILD_DIR}/ vendor/
+	rm -rf bin/ ${BUILD_DIR}/
 
 bin/dep: bin/dep-${DEP_VERSION}
 	@ln -sf dep-${DEP_VERSION} bin/dep
@@ -44,10 +44,6 @@ bin/dep-${DEP_VERSION}:
 	@mkdir -p bin
 	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | INSTALL_DIRECTORY=bin DEP_RELEASE_TAG=v${DEP_VERSION} sh
 	@mv bin/dep $@
-
-.PHONY: vendor
-vendor: bin/dep ## Install dependencies
-	bin/dep ensure -v -vendor-only
 
 .PHONY: build
 build: ## Build a binary
