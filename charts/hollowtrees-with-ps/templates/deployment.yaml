@@ -1,0 +1,102 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: "{{ template "hollowtrees-with-ps.fullname" . }}"
+  labels:
+    app: "{{ template "hollowtrees-with-ps.fullname" . }}"
+    chart: "{{ .Chart.Name }}-{{ .Chart.Version }}"
+    release: "{{ .Release.Name }}"
+    heritage: "{{ .Release.Service }}"
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "hollowtrees-with-ps.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "hollowtrees-with-ps.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+      {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      containers:
+      - name: "hollowtrees"
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.imagePullPolicy | quote }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.promalert.listenPort }}
+        - name: healthcheck
+          containerPort: {{ .Values.healthcheck.listenPort }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.healthcheck.endpoint | quote }}
+            port: healthcheck
+          initialDelaySeconds: 10
+          timeoutSeconds: 3
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.healthcheck.endpoint | quote }}
+            port: healthcheck
+          initialDelaySeconds: 10
+          timeoutSeconds: 3
+          periodSeconds: 5
+        resources:
+        {{- toYaml .Values.resources | nindent 10 }}
+        volumeMounts:
+        - name: config
+          mountPath: /root/config/
+      - name: "pipeline-scaler-plugin"
+        image: "{{ .Values.htpsp.image.repository }}:{{ .Values.htpsp.image.tag }}"
+        imagePullPolicy: {{ .Values.htpsp.image.imagePullPolicy | quote }}
+        env:
+        - name: HTPSP_CONFIG_DIR
+          value: "/config"
+        ports:
+        - name: http
+          containerPort: {{ .Values.htpsp.listenPort }}
+        - name: healthcheck
+          containerPort: {{ .Values.htpsp.healthcheck.listenPort }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.htpsp.healthcheck.endpoint | quote }}
+            port: healthcheck
+          initialDelaySeconds: 10
+          timeoutSeconds: 3
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.htpsp.healthcheck.endpoint | quote }}
+            port: healthcheck
+          initialDelaySeconds: 10
+          timeoutSeconds: 3
+          periodSeconds: 5
+        volumeMounts:
+        - name: htpsp-config
+          mountPath: /config/
+        resources:
+        {{- toYaml .Values.htpsp.resources | nindent 10 }}
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "hollowtrees-with-ps.fullname" . }}
+      - name: htpsp-config
+        configMap:
+          name: {{ include "hollowtrees-with-ps.fullname" . }}-htpsp
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}

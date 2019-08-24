@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hollowtrees-with-ps.fullname" . }}-htpsp
+  labels:
+{{ include "hollowtrees-with-ps.labels" . | indent 4 }}
+data:
+{{- with .Values.htpsp }}
+  config.yaml: |-
+    log:
+      format: {{ .log.format | quote }}
+      level: {{ .log.level | quote }}
+
+    healthcheck:
+      listenAddress: ":{{ .healthcheck.listenPort }}"
+      endpoint: {{ .healthcheck.endpoint | quote }}
+
+    eventHandler:
+      listenAddress: ":{{ .listenPort }}"
+
+    scaler:
+      pipeline:
+        url: {{ required "Pipeline URL must be defined" .scaler.pipeline.url | quote }}
+        skipTLSVerify: {{ .scaler.pipeline.skipTLSVerify }}
+      telescopes:
+        url: {{ required "Telescopes URL must be defined" .scaler.telescopes.url | quote }}
+        skipTLSVerify: {{ .scaler.telescopes.skipTLSVerify }}
+      retries: {{ .scaler.retries }}
+      waitBetweenRetries: {{ .scaler.waitBetweenRetries | quote }}
+      waitInQueue: {{ .scaler.waitInQueue | quote }}
+{{- end }}
