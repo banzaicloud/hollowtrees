@@ -63,7 +63,7 @@ type Alert struct {
 	Annotations  map[string]string `json:"annotations"`
 	StartsAt     time.Time         `json:"startsAt"`
 	EndsAt       time.Time         `json:"endsAt"`
-	GeneratorURL string            `json:"generatorURL" validate:"datauri"`
+	GeneratorURL string            `json:"generatorURL" validate:"url"`
 }
 
 // convertToCE converts incoming prometheus alert struct to CloudEvent struct
