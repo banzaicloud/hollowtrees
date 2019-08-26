@@ -19,11 +19,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/goph/emperror"
-	validator "gopkg.in/go-playground/validator.v8"
 
 	"github.com/banzaicloud/hollowtrees/internal/platform/gin/correlationid"
 	ginlog "github.com/banzaicloud/hollowtrees/internal/platform/gin/log"
 	"github.com/banzaicloud/hollowtrees/internal/platform/log"
+	"github.com/banzaicloud/hollowtrees/pkg/auth"
 )
 
 const (
@@ -33,14 +33,22 @@ const (
 
 // PromAlertHandler describes a Prometheus alert handler
 type PromAlertHandler struct {
+	useJWTAuth    bool
+	jwtSigningKey string
+	listenAddress string
+
 	logger       log.Logger
 	errorHandler emperror.Handler
 	eb           eventPublisher
 }
 
 // New returns an initialized PromAlertHandler
-func New(logger log.Logger, errorHandler emperror.Handler, eb eventPublisher) *PromAlertHandler {
+func New(config Config, logger log.Logger, errorHandler emperror.Handler, eb eventPublisher) *PromAlertHandler {
 	return &PromAlertHandler{
+		useJWTAuth:    config.UseJWTAuth,
+		jwtSigningKey: config.JWTSigningKey,
+		listenAddress: config.ListenAddress,
+
 		logger:       logger,
 		errorHandler: errorHandler,
 		eb:           eb,
@@ -48,17 +56,21 @@ func New(logger log.Logger, errorHandler emperror.Handler, eb eventPublisher) *P
 }
 
 // Run runs the alert handler HTTP listener
-func (p *PromAlertHandler) Run(addr string) {
-	p.logger.WithField("addr", addr).Info("starting prometheus alert handler")
+func (p *PromAlertHandler) Run() {
+	p.logger.WithField("addr", p.listenAddress).WithField("useJWTAuth", p.useJWTAuth).Info("starting prometheus alert handler")
 
 	r := gin.New()
 	r.Use(gin.Recovery())
+
 	r.Use(correlationid.Middleware())
 	r.Use(ginlog.Middleware(p.logger))
+	if p.useJWTAuth {
+		r.Use(auth.Handler(p.jwtSigningKey))
+	}
 
 	r.POST("/api/v1/alerts", p.handle)
 
-	err := r.Run(addr)
+	err := r.Run(p.listenAddress)
 	if err != nil {
 		p.errorHandler.Handle(err)
 	}
@@ -66,25 +78,37 @@ func (p *PromAlertHandler) Run(addr string) {
 
 // handle handles the incoming HTTP request
 func (p *PromAlertHandler) handle(c *gin.Context) {
-	var alerts []Alert
+	var alerts Alerts
 
 	log := correlationid.Logger(p.logger, c)
 
-	if err := c.BindJSON(&alerts); err != nil {
-		if ve, ok := err.(validator.ValidationErrors); !ok {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  http.StatusInternalServerError,
-				"message": "Failed to process alert",
-				"error":   ve.Error(),
-			})
-		} else {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status":  http.StatusBadRequest,
-				"message": "Validation failed",
-				"error":   ve.Error(),
-			})
-		}
+	if err := c.ShouldBindJSON(&alerts); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "failed to process alerts",
+			"error":   err.Error(),
+		})
 		return
+	}
+
+	if err := alerts.Validate(); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"status":  http.StatusBadRequest,
+			"message": "invalid alert",
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	if p.useJWTAuth {
+		if err := alerts.Authorize(auth.GetCurrentUser(c)); err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"status":  http.StatusUnauthorized,
+				"message": "could not process alerts",
+				"error":   err.Error(),
+			})
+			return
+		}
 	}
 
 	log.WithField("alert-count", len(alerts)).Debug("alerts received")

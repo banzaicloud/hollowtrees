@@ -19,10 +19,43 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/satori/go.uuid"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
+	"gopkg.in/go-playground/validator.v9"
 
 	"github.com/banzaicloud/hollowtrees/internal/ce"
+	"github.com/banzaicloud/hollowtrees/pkg/auth"
 )
+
+type Alerts []Alert
+
+func (alerts Alerts) Validate() error {
+	for _, alert := range alerts {
+		if alert.Labels["cluster_id"] == "" {
+			return errors.New("invalid alert: mandatory 'cluster_id' parameter is missing")
+		}
+		if alert.Labels["org_id"] == "" {
+			return errors.New("invalid alert: mandatory 'org_id' parameter is missing")
+		}
+
+		err := validator.New().Struct(alert)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (alerts Alerts) Authorize(user *auth.User) error {
+	for _, alert := range alerts {
+		if alert.Labels["cluster_id"] == "" || alert.Labels["org_id"] == "" || alert.Labels["cluster_id"] != user.ClusterID || alert.Labels["org_id"] != user.OrgID {
+			return errors.Errorf("invalid alert: unauthorized")
+		}
+	}
+
+	return nil
+}
 
 // Alert describes an incoming Prometheus alert
 type Alert struct {
@@ -30,7 +63,7 @@ type Alert struct {
 	Annotations  map[string]string `json:"annotations"`
 	StartsAt     time.Time         `json:"startsAt"`
 	EndsAt       time.Time         `json:"endsAt"`
-	GeneratorURL string            `json:"generatorURL"`
+	GeneratorURL string            `json:"generatorURL" validate:"url"`
 }
 
 // convertToCE converts incoming prometheus alert struct to CloudEvent struct
