@@ -92,7 +92,7 @@ func GetCurrentUser(c *gin.Context) *User {
 }
 
 func Handler(signingKey string) gin.HandlerFunc {
-	return bauth.JWTAuth(NewNullTokenStore(), signingKey, claimConverter)
+	return bauth.JWTAuth(nil, signingKey, claimConverter)
 }
 
 func claimConverter(claims *bauth.ScopedClaims) interface{} {

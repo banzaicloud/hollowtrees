@@ -23,6 +23,8 @@ github.com/banzaicloud/bank-vaults/pkg/sdk v0.1.1 h1:FVru2fTDY1dcvMZAFVVvJE7N2JC
 github.com/banzaicloud/bank-vaults/pkg/sdk v0.1.1/go.mod h1:BBgi3VY8BvvLBMWDtdiM+DTyRW2n6Sbvzvif+/AXHXI=
 github.com/banzaicloud/bank-vaults/pkg/sdk v0.1.2-0.20190824120735-50600eba199e h1:NH/cYHOQB8+ezTLy1xiRx7QwGwrW9WtZ9Zq7DS7WtmY=
 github.com/banzaicloud/bank-vaults/pkg/sdk v0.1.2-0.20190824120735-50600eba199e/go.mod h1:t8CI6t3iGDKQuTFLFjhY/HBw/p3B6dCsLAgikct0amc=
+github.com/banzaicloud/bank-vaults/pkg/sdk v0.1.3-0.20190826065836-26d654c87254 h1:EDSd7zAvlWFymtHnGZtnto+bPoLZmHAYs9LZoj8juW4=
+github.com/banzaicloud/bank-vaults/pkg/sdk v0.1.3-0.20190826065836-26d654c87254/go.mod h1:t8CI6t3iGDKQuTFLFjhY/HBw/p3B6dCsLAgikct0amc=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/bgentry/speakeasy v0.1.0/go.mod h1:+zsyZBPWlz7T6j88CTgSN5bM796AkVf0kBD4zp0CCIs=

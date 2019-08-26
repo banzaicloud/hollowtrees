@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/asaskevich/EventBus v0.0.0-20180315140547-d46933a94f05
-	github.com/banzaicloud/bank-vaults/pkg/sdk v0.1.2-0.20190824120735-50600eba199e
+	github.com/banzaicloud/bank-vaults/pkg/sdk v0.1.3-0.20190826065836-26d654c87254
 	github.com/cloudevents/sdk-go v0.0.0-20181211100118-3a3d34a7231e
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-gonic/gin v1.4.0
