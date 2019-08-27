@@ -1,7 +1,7 @@
 version: 2.1
 
 orbs:
-  helm: banzaicloud/helm@0.0.3
+  helm: banzaicloud/helm@0.0.5
 
 jobs:
   build:
@@ -88,3 +88,20 @@ workflows:
   ci:
     jobs:
       - build
+
+  helm-chart:
+    jobs:
+      - helm/lint-chart:
+          charts-dir: charts
+          filters:
+            tags:
+              ignore: /.*/
+
+      - helm/publish-chart:
+          context: helm
+          charts-dir: charts
+          filters:
+            tags:
+              only: /chart\/\S+\/\d+.\d+.\d+/
+            branches:
+              ignore: /.*/
