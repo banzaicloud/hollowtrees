@@ -1,3 +1,4 @@
+apiVersion: v1
 name: hollowtrees-with-ps
 home: https://banzaicloud.com
 sources:
@@ -5,7 +6,8 @@ sources:
   - https://github.com/banzaicloud
   - https://github.com/banzaicloud/hollowtrees
   - https://github.com/banzaicloud/hollowtrees/charts/hollowtrees-with-ps
-version: 0.2.0
+version: 0.2.1
+appVersion: 0.1.1
 description: Hollowtrees with Pipeline Scaler plugin
 keywords:
 - scaling
